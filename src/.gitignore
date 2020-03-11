@@ -30,3 +30,22 @@
 *.exe
 *.out
 *.app
+
+# VC++ compiled resource
+*.res
+*.aps
+
+# VC++ debug information objects
+*.idb
+*.pdb
+
+# VC++ Compiled Object files
+*.ilk
+*.intermediate.manifest
+BuildLog.htm
+mt.dep
+
+# VC++ project temporary files
+*.vcproj.*.user
+*.ncb
+*.suo
