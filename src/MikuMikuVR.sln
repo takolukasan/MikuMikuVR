@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MikuMikuVR", "d3d9_hook\d3d9_hook.vcproj", "{F77B9C61-B205-4B0A-B122-803E87101849}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MikuMikuVREXE", "MikuMikuVREXE\MikuMikuVREXE.vcproj", "{93483207-671B-4128-95BB-812BBC3072CA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F77B9C61-B205-4B0A-B122-803E87101849}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F77B9C61-B205-4B0A-B122-803E87101849}.Debug|Win32.Build.0 = Debug|Win32
+		{F77B9C61-B205-4B0A-B122-803E87101849}.Debug|x64.ActiveCfg = Debug|x64
+		{F77B9C61-B205-4B0A-B122-803E87101849}.Debug|x64.Build.0 = Debug|x64
+		{F77B9C61-B205-4B0A-B122-803E87101849}.Release|Win32.ActiveCfg = Release|Win32
+		{F77B9C61-B205-4B0A-B122-803E87101849}.Release|Win32.Build.0 = Release|Win32
+		{F77B9C61-B205-4B0A-B122-803E87101849}.Release|x64.ActiveCfg = Release|x64
+		{F77B9C61-B205-4B0A-B122-803E87101849}.Release|x64.Build.0 = Release|x64
+		{93483207-671B-4128-95BB-812BBC3072CA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{93483207-671B-4128-95BB-812BBC3072CA}.Debug|Win32.Build.0 = Debug|Win32
+		{93483207-671B-4128-95BB-812BBC3072CA}.Debug|x64.ActiveCfg = Debug|x64
+		{93483207-671B-4128-95BB-812BBC3072CA}.Debug|x64.Build.0 = Debug|x64
+		{93483207-671B-4128-95BB-812BBC3072CA}.Release|Win32.ActiveCfg = Release|Win32
+		{93483207-671B-4128-95BB-812BBC3072CA}.Release|Win32.Build.0 = Release|Win32
+		{93483207-671B-4128-95BB-812BBC3072CA}.Release|x64.ActiveCfg = Release|x64
+		{93483207-671B-4128-95BB-812BBC3072CA}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
