@@ -28,12 +28,25 @@ ID3D11ShaderResourceView *g_pEyeSRView[OVR_EYE_NUM];
 ovrEyeRenderDesc g_EyeRenderDesc[OVR_EYE_NUM];
 ovrRecti g_EyeRenderViewport[OVR_EYE_NUM];
 ovrD3D11Texture g_OvrEyeTex[2];
+ovrVector3f g_VecHMDToEyeViewOffset[OVR_EYE_NUM];
+
+ovrPosef g_DistortionRender_EyeRenderPose[OVR_EYE_NUM];
+
 
 D3DXMATRIX g_matOVREyeProj[OVR_EYE_NUM];
 
 
 HANDLE hOVREyeViewThread = NULL;
 BOOL bOVREyeViewContinue = TRUE;
+
+
+
+CRITICAL_SECTION g_csLockmatEyeView;
+D3DXMATRIX g_matEyeView[OVR_EYE_NUM];
+
+
+
+
 
 static DWORD WINAPI OVRDistortion_EyeViewCaluculation(LPVOID lpParameter);
 
@@ -128,12 +141,14 @@ HRESULT OVRDistortion_D3D11Init()
     sd.BufferDesc.Width = width;
     sd.BufferDesc.Height = height;
     sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    sd.BufferDesc.RefreshRate.Numerator = 75;			// Oculus DK2 = 75Hz
+    sd.BufferDesc.RefreshRate.Numerator = 0;			// Oculus DK2 = 75Hz
     sd.BufferDesc.RefreshRate.Denominator = 1;
-    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_UNORDERED_ACCESS;
     sd.OutputWindow = g_hWndDistortion;
+	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 	// Todo: デバイスのサポートを調べること
-	//sd.SampleDesc.Count = 8;
+	// ID3D11Device::CheckMultisampleQualityLevels
+	sd.SampleDesc.Count = 1;	// 8
     //sd.SampleDesc.Quality = 4;
     sd.Windowed = TRUE;
 
@@ -154,13 +169,14 @@ HRESULT OVRDistortion_D3D11Init()
 		if( SUCCEEDED(hr) ) {
 			pAdapterNew->GetDesc(&adpDesc);
 			OVROutputAdapter = pAdapterNew;
+			break;
 		}
 		pAdapter = pAdapterNew;
 		hr = pFactory->EnumAdapters(i, &pAdapterNew);
 		if( SUCCEEDED(hr) ) {
 			pAdapter->Release();
 		}
-		if( i == 2 )
+		if( i == 1 )
 			break;
 		i++;
 	} while( SUCCEEDED( hr ) );
@@ -178,8 +194,14 @@ HRESULT OVRDistortion_D3D11Init()
 	        g_driverType = driverTypes[driverTypeIndex];
 		}
 		// Swapchain を別で作るように変更予定(@GPU変更) → リソース共有できない。
+		// D3D11CreateDevice と別々に呼ばないとダメ？
         hr = D3D11CreateDeviceAndSwapChain( OVROutputAdapter, g_driverType, NULL, createDeviceFlags, featureLevels, numFeatureLevels,
                                             D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &g_featureLevel, &g_pImmediateContext );
+
+        // hr = D3D11CreateDevice( OVROutputAdapter, g_driverType, NULL, createDeviceFlags, featureLevels, numFeatureLevels,
+        //                                     D3D11_SDK_VERSION, &g_pd3dDevice, &g_featureLevel, &g_pImmediateContext );
+
+		// hr = pFactory->CreateSwapChain(g_pd3dDevice, &sd, &g_pSwapChain);
         if( SUCCEEDED( hr ) )
             break;
     }
@@ -285,16 +307,19 @@ HRESULT OVRDistortion_Create()
 
 #ifndef _DEBUG
 	ob = ovrHmd_ConfigureRendering(g_HMD, &conf.Config,
-		ovrDistortionCap_Vignette | ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Overdrive,
+		ovrDistortionCap_Vignette | ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Overdrive | ovrDistortionCap_HqDistortion,
 		eyeFov, g_EyeRenderDesc);
 #else
 	ob = ovrHmd_ConfigureRendering(g_HMD, &conf.Config,
-		ovrDistortionCap_Vignette | ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_HqDistortion,
+		ovrDistortionCap_Vignette | ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Overdrive,
 		eyeFov, g_EyeRenderDesc);
 #endif
 	if( !ob ) {
 		return E_FAIL;
 	}
+
+	g_VecHMDToEyeViewOffset[OVR_EYE_LEFT] = g_EyeRenderDesc[OVR_EYE_LEFT].HmdToEyeViewOffset;
+	g_VecHMDToEyeViewOffset[OVR_EYE_RIGHT] = g_EyeRenderDesc[OVR_EYE_RIGHT].HmdToEyeViewOffset;
 
 	ovrHmd_SetEnabledCaps(g_HMD, ovrHmdCap_LowPersistence | ovrHmdCap_DynamicPrediction | ovrHmdCap_NoMirrorToWindow);
 	// Start the sensor which informs of the Rift's pose and motion
@@ -383,74 +408,13 @@ D3DXVECTOR3 * Transform(D3DXVECTOR3 *vecOut, D3DXMATRIX *matIn, D3DXVECTOR3 *v)
 	return vecOut;
 }
 
-D3DXMATRIX matEyeView[OVR_EYE_NUM];
-BOOL bSync = FALSE;
-
-HRESULT OVRDistortion_Render()
+HRESULT OVRDistortion_Render1()
 {
-	static int nFrameCount = 0;
-	static DWORD dwFPSStartTime = 0;
-
 	// OVR
-	ovrPosef EyeRenderPose[OVR_EYE_NUM];
-
 	ovrHmd_BeginFrame(g_HMD, 0);
 
 	ovrTrackingState hmdState;
-	ovrVector3f hmdToEyeViewOffset[OVR_EYE_NUM] = { g_EyeRenderDesc[0].HmdToEyeViewOffset, g_EyeRenderDesc[1].HmdToEyeViewOffset };
-	ovrHmd_GetEyePoses(g_HMD, 0, hmdToEyeViewOffset, EyeRenderPose, &hmdState);
-
-#if 0
-	D3DXMATRIX matRotate,matTrans,mat,matUp;
-	D3DXQUATERNION q;
-	D3DXVECTOR3 vecEye,vecAt,vecUp;
-	q.x = EyeRenderPose[OVR_EYE_LEFT].Orientation.x;
-	q.y = EyeRenderPose[OVR_EYE_LEFT].Orientation.y;
-	q.z = -EyeRenderPose[OVR_EYE_LEFT].Orientation.z;
-	q.w = EyeRenderPose[OVR_EYE_LEFT].Orientation.w;
-	D3DXMatrixRotationQuaternion(&matRotate, &q);
-	D3DXMatrixTranslation(&matTrans, -EyeRenderPose[OVR_EYE_LEFT].Position.x * 10, -EyeRenderPose[OVR_EYE_LEFT].Position.y * 10, EyeRenderPose[OVR_EYE_LEFT].Position.z * 10);
-	matEyeView[OVR_EYE_LEFT] = matRotate * matTrans;
-
-#if 0
-	XMVECTOR XMVecQ = XMVectorSet(
-		EyeRenderPose[OVR_EYE_LEFT].Orientation.x, EyeRenderPose[OVR_EYE_LEFT].Orientation.y,
-		-EyeRenderPose[OVR_EYE_LEFT].Orientation.z, EyeRenderPose[OVR_EYE_LEFT].Orientation.w);
-	XMMATRIX xmmatTrans,xmmat;
-	xmmat = XMMatrixRotationQuaternion(XMVecQ);
-	xmmatTrans = XMMatrixTranslation(EyeRenderPose[OVR_EYE_LEFT].Position.x, EyeRenderPose[OVR_EYE_LEFT].Position.y, EyeRenderPose[OVR_EYE_LEFT].Position.z);
-	xmmat *= xmmatTrans;
-	matEyeView[OVR_EYE_LEFT] = D3DXMATRIX(&xmmatTrans.m[0][0]);
-#endif
-#if 0
-	D3DXVECTOR3 vec1 = D3DXVECTOR3(0.0f, 1.0f, 0.0f);
-	D3DXVECTOR3 vec2 = D3DXVECTOR3(0.0f, 0.0f, 1.0f);
-	D3DXVECTOR3 vecBasePos = D3DXVECTOR3(0.0f, 10.0f, -10.0f);
-	Transform(&vecUp, &matRotate, &vec1);
-	vecEye = vecBasePos + D3DXVECTOR3(EyeRenderPose[OVR_EYE_LEFT].Position.x, EyeRenderPose[OVR_EYE_LEFT].Position.y, EyeRenderPose[OVR_EYE_LEFT].Position.z);
-	Transform(&vecAt, &matRotate, &vec2);
-	vecAt += vecEye;
-	D3DXMatrixLookAtLH(&matEyeView[OVR_EYE_LEFT], &vecEye, &vecAt, &vecUp);
-#endif
-
-	q.x = EyeRenderPose[OVR_EYE_RIGHT].Orientation.x;
-	q.y = EyeRenderPose[OVR_EYE_RIGHT].Orientation.y;
-	q.z = -EyeRenderPose[OVR_EYE_RIGHT].Orientation.z;
-	q.w = EyeRenderPose[OVR_EYE_RIGHT].Orientation.w;
-	D3DXMatrixRotationQuaternion(&matRotate, &q);
-	D3DXMatrixTranslation(&matTrans, -EyeRenderPose[OVR_EYE_RIGHT].Position.x * 10, -EyeRenderPose[OVR_EYE_RIGHT].Position.y * 10, EyeRenderPose[OVR_EYE_RIGHT].Position.z * 10);
-	matEyeView[OVR_EYE_RIGHT] = matRotate * matTrans;
-
-#if 0
-	Transform(&vecUp, &matRotate, &vec1);
-	vecEye = vecBasePos + D3DXVECTOR3(EyeRenderPose[OVR_EYE_RIGHT].Position.x, EyeRenderPose[OVR_EYE_RIGHT].Position.y, EyeRenderPose[OVR_EYE_RIGHT].Position.z);
-	Transform(&vecAt, &matRotate, &vec2);
-	vecAt += vecEye;
-	D3DXMatrixLookAtLH(&matEyeView[OVR_EYE_RIGHT], &vecEye, &vecAt, &vecUp);
-#endif
-
-	bSync = TRUE;
-#endif
+	ovrHmd_GetEyePoses(g_HMD, 0, g_VecHMDToEyeViewOffset, g_DistortionRender_EyeRenderPose, &hmdState);
 
     //
     // Clear the back buffer
@@ -463,12 +427,19 @@ HRESULT OVRDistortion_Render()
     //
     g_pImmediateContext->ClearDepthStencilView( g_pDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 
+	return S_OK;
+}
+
+HRESULT OVRDistortion_Render2()
+{
+	static int nFrameCount = 0;
+	static DWORD dwFPSStartTime = 0;
 
 	ovrTexture EyeTexture[2];
 	ZeroMemory(EyeTexture, sizeof(EyeTexture));
 	EyeTexture[0] = g_OvrEyeTex[0].Texture;
 	EyeTexture[1] = g_OvrEyeTex[1].Texture;
-	ovrHmd_EndFrame(g_HMD, EyeRenderPose, EyeTexture);
+	ovrHmd_EndFrame(g_HMD, g_DistortionRender_EyeRenderPose, EyeTexture);
 
 
 	//
@@ -476,6 +447,7 @@ HRESULT OVRDistortion_Render()
     //
 	// ovrHmd_EndFrame() が勝手にやってくれる
     // g_pSwapChain->Present( 0, 0 );
+
 
 	DWORD dwTime = timeGetTime();
 	DWORD dwTimeDiff = dwTime - dwFPSStartTime;
@@ -492,68 +464,46 @@ HRESULT OVRDistortion_Render()
 
 static DWORD WINAPI OVRDistortion_EyeViewCaluculation(LPVOID lpParameter)
 {
+	D3DXMATRIX matEyeView[OVR_EYE_NUM];
 	ovrPosef EyeRenderPose[OVR_EYE_NUM];
 	ovrTrackingState hmdState;
-	ovrVector3f hmdToEyeViewOffset[OVR_EYE_NUM] = { g_EyeRenderDesc[0].HmdToEyeViewOffset, g_EyeRenderDesc[1].HmdToEyeViewOffset };
 
 	while( bOVREyeViewContinue ) {
-#if 1
-	ovrHmd_GetEyePoses(g_HMD, 0, hmdToEyeViewOffset, EyeRenderPose, &hmdState);
 
-	D3DXMATRIX matRotate,matTrans,mat,matUp;
-	D3DXVECTOR3 vec1 = D3DXVECTOR3(0.0f, 1.0f, 0.0f);
-	D3DXVECTOR3 vec2 = D3DXVECTOR3(0.0f, 0.0f, 1.0f);
-	D3DXQUATERNION q;
-	D3DXVECTOR3 vecEye,vecAt,vecUp;
-	D3DXVECTOR3 vecBasePos = D3DXVECTOR3(0.0f, 10.0f, -10.0f);
-	q.x = EyeRenderPose[OVR_EYE_LEFT].Orientation.x;
-	q.y = EyeRenderPose[OVR_EYE_LEFT].Orientation.y;
-	q.z = -EyeRenderPose[OVR_EYE_LEFT].Orientation.z;
-	q.w = EyeRenderPose[OVR_EYE_LEFT].Orientation.w;
-	D3DXMatrixRotationQuaternion(&matRotate, &q);
-	D3DXMatrixTranslation(&matTrans, -EyeRenderPose[OVR_EYE_LEFT].Position.x * 10, -EyeRenderPose[OVR_EYE_LEFT].Position.y * 10, EyeRenderPose[OVR_EYE_LEFT].Position.z * 10);
-	matEyeView[OVR_EYE_LEFT] = matTrans * matRotate;
+		ovrHmd_GetEyePoses(g_HMD, 0, g_VecHMDToEyeViewOffset, EyeRenderPose, &hmdState);
 
-#if 0
-	XMVECTOR XMVecQ = XMVectorSet(
-		EyeRenderPose[OVR_EYE_LEFT].Orientation.x, EyeRenderPose[OVR_EYE_LEFT].Orientation.y,
-		-EyeRenderPose[OVR_EYE_LEFT].Orientation.z, EyeRenderPose[OVR_EYE_LEFT].Orientation.w);
-	XMMATRIX xmmatTrans,xmmat;
-	xmmat = XMMatrixRotationQuaternion(XMVecQ);
-	xmmatTrans = XMMatrixTranslation(EyeRenderPose[OVR_EYE_LEFT].Position.x, EyeRenderPose[OVR_EYE_LEFT].Position.y, EyeRenderPose[OVR_EYE_LEFT].Position.z);
-	xmmat *= xmmatTrans;
-	matEyeView[OVR_EYE_LEFT] = D3DXMATRIX(&xmmatTrans.m[0][0]);
-#endif
-#if 0
-	Transform(&vecUp, &matRotate, &vec1);
-	vecEye = vecBasePos + D3DXVECTOR3(EyeRenderPose[OVR_EYE_LEFT].Position.x, EyeRenderPose[OVR_EYE_LEFT].Position.y, EyeRenderPose[OVR_EYE_LEFT].Position.z);
-	Transform(&vecAt, &matRotate, &vec2);
-	vecAt += vecEye;
-	D3DXMatrixLookAtLH(&matEyeView[OVR_EYE_LEFT], &vecEye, &vecAt, &vecUp);
-#endif
+		D3DXMATRIX matRotate,matTrans,mat,matUp,matRotateYAxis,matHeadMove;
+		D3DXVECTOR3 vec1 = D3DXVECTOR3(0.0f, 1.0f, 0.0f);
+		D3DXVECTOR3 vec2 = D3DXVECTOR3(0.0f, 0.0f, 1.0f);
+		D3DXQUATERNION q;
+		D3DXVECTOR3 vecEye,vecAt,vecUp;
+		D3DXVECTOR3 vecBasePos = D3DXVECTOR3(0.0f, 10.0f, -10.0f);
 
-	q.x = EyeRenderPose[OVR_EYE_RIGHT].Orientation.x;
-	q.y = EyeRenderPose[OVR_EYE_RIGHT].Orientation.y;
-	q.z = -EyeRenderPose[OVR_EYE_RIGHT].Orientation.z;
-	q.w = EyeRenderPose[OVR_EYE_RIGHT].Orientation.w;
-	D3DXMatrixRotationQuaternion(&matRotate, &q);
-	D3DXMatrixTranslation(&matTrans, -EyeRenderPose[OVR_EYE_RIGHT].Position.x * 10, -EyeRenderPose[OVR_EYE_RIGHT].Position.y * 10, EyeRenderPose[OVR_EYE_RIGHT].Position.z * 10);
-	matEyeView[OVR_EYE_RIGHT] = matTrans * matRotate;
+		D3DXMatrixTranslation(&matHeadMove, (float)g_dMovingPosX, (float)g_dMovingPosY, (float)g_dMovingPosZ);
+		D3DXMatrixRotationY(&matRotateYAxis, (float)g_dRotationY);
 
-#if 0
-	Transform(&vecUp, &matRotate, &vec1);
-	vecEye = vecBasePos + D3DXVECTOR3(EyeRenderPose[OVR_EYE_RIGHT].Position.x, EyeRenderPose[OVR_EYE_RIGHT].Position.y, EyeRenderPose[OVR_EYE_RIGHT].Position.z);
-	Transform(&vecAt, &matRotate, &vec2);
-	vecAt += vecEye;
-	D3DXMatrixLookAtLH(&matEyeView[OVR_EYE_RIGHT], &vecEye, &vecAt, &vecUp);
-#endif
+		q.x = EyeRenderPose[OVR_EYE_LEFT].Orientation.x;
+		q.y = EyeRenderPose[OVR_EYE_LEFT].Orientation.y;
+		q.z = -EyeRenderPose[OVR_EYE_LEFT].Orientation.z;
+		q.w = EyeRenderPose[OVR_EYE_LEFT].Orientation.w;
+		D3DXMatrixRotationQuaternion(&matRotate, &q);
+		D3DXMatrixTranslation(&matTrans, -EyeRenderPose[OVR_EYE_LEFT].Position.x * 10, -EyeRenderPose[OVR_EYE_LEFT].Position.y * 10, EyeRenderPose[OVR_EYE_LEFT].Position.z * 10);
+		matEyeView[OVR_EYE_LEFT] = matHeadMove * matRotateYAxis * matTrans * matRotate;
 
-	bSync = TRUE;
+		q.x = EyeRenderPose[OVR_EYE_RIGHT].Orientation.x;
+		q.y = EyeRenderPose[OVR_EYE_RIGHT].Orientation.y;
+		q.z = -EyeRenderPose[OVR_EYE_RIGHT].Orientation.z;
+		q.w = EyeRenderPose[OVR_EYE_RIGHT].Orientation.w;
+		D3DXMatrixRotationQuaternion(&matRotate, &q);
+		D3DXMatrixTranslation(&matTrans, -EyeRenderPose[OVR_EYE_RIGHT].Position.x * 10, -EyeRenderPose[OVR_EYE_RIGHT].Position.y * 10, EyeRenderPose[OVR_EYE_RIGHT].Position.z * 10);
+		matEyeView[OVR_EYE_RIGHT] = matHeadMove * matRotateYAxis * matTrans * matRotate;
 
-#endif
+		EnterCriticalSection(&g_csLockmatEyeView);
+		g_matEyeView[OVR_EYE_LEFT] = matEyeView[OVR_EYE_LEFT];
+		g_matEyeView[OVR_EYE_RIGHT] = matEyeView[OVR_EYE_RIGHT];
+		LeaveCriticalSection(&g_csLockmatEyeView);
 
-
-		Sleep(0);
+		Sleep(1);
 	}
 	
 	return 0;

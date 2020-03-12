@@ -111,7 +111,7 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 
 	if( SUCCEEDED(hr) ) {
 		size_t index,len1,len2;
-		int nCompResult_RT,nCompResult_OBJ;
+		int nCompResult_RT;
 #ifdef OVR_ENABLE
 		int nCompResult_EyeRT[OVR_EYE_NUM];
 #endif
@@ -128,20 +128,13 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 		len2 = strlen(szFilename);
 		nCompResult_RT = CompareStringA(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
 
-#if 0
-		// MMEHACK_EFFECT_OBJRENDERER : Object renderer
-		szFilename = MMEHACK_EFFECT_OBJRENDERER;
-		len2 = strlen(szFilename);
-		nCompResult_OBJ = CompareStringA(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
-#endif
-
 #ifdef OVR_ENABLE
 		// MMEHACK_EFFECT_OVRRENDERL : OVR Eye renderer Left
 		szFilename = MMEHACK_EFFECT_OVRRENDERL;
 		len2 = strlen(szFilename);
 		nCompResult_EyeRT[OVR_EYE_LEFT] = CompareStringA(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
 
-		// MMEHACK_EFFECT_OVRRENDERR : OVR Eye renderer Left
+		// MMEHACK_EFFECT_OVRRENDERR : OVR Eye renderer Right
 		szFilename = MMEHACK_EFFECT_OVRRENDERR;
 		len2 = strlen(szFilename);
 		nCompResult_EyeRT[OVR_EYE_RIGHT] = CompareStringA(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
@@ -159,20 +152,13 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 		len2 = wcslen(szFilename);
 		nCompResult_RT = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
 
-#if 0
-		// MMEHACK_EFFECT_OBJRENDERER : Object renderer
-		szFilename = TEXT(MMEHACK_EFFECT_OBJRENDERER);
-		len2 = wcslen(szFilename);
-		nCompResult_OBJ = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
-#endif
-
 #ifdef OVR_ENABLE
 		// MMEHACK_EFFECT_OVRRENDERL : OVR Eye renderer Left
 		szFilename = TEXT(MMEHACK_EFFECT_OVRRENDERL);
 		len2 = wcslen(szFilename);
 		nCompResult_EyeRT[OVR_EYE_LEFT] = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
 
-		// MMEHACK_EFFECT_OVRRENDERR : OVR Eye renderer Left
+		// MMEHACK_EFFECT_OVRRENDERR : OVR Eye renderer Right
 		szFilename = TEXT(MMEHACK_EFFECT_OVRRENDERR);
 		len2 = wcslen(szFilename);
 		nCompResult_EyeRT[OVR_EYE_RIGHT] = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
@@ -558,23 +544,14 @@ HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::CloneEffect(LPDIRECT3DDEV
 	return hr;
 }
 
-extern D3DXMATRIX matEyeView[OVR_EYE_NUM];
-extern BOOL bSync;
-
 HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::Begin(UINT *pPasses, DWORD Flags)
 {
 	static D3DXMATRIX matEye[OVR_EYE_NUM];
 
-	if( bSync ) {
-		matEye[OVR_EYE_LEFT] = matEyeView[OVR_EYE_LEFT];
-		matEye[OVR_EYE_RIGHT] = matEyeView[OVR_EYE_RIGHT];
-		bSync = FALSE;
-	}
-
-	int nEye = this->nOVREye;
+	pMMEHookDirect3DDevice9->GetEyeViewMatrix(&matEye[OVR_EYE_LEFT], &matEye[OVR_EYE_RIGHT]);
 
 	if( this->hViewMatrix ) {
-		this->pOriginal->SetMatrix(this->hViewMatrix, &matEye[nEye]);
+		this->pOriginal->SetMatrix(this->hViewMatrix, &matEye[this->nOVREye]);
 	}
 
 	return this->pOriginal->Begin(pPasses, Flags);

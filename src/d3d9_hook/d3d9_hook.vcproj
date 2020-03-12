@@ -12,6 +12,9 @@
 		<Platform
 			Name="Win32"
 		/>
+		<Platform
+			Name="x64"
+		/>
 	</Platforms>
 	<ToolFiles>
 	</ToolFiles>
@@ -61,13 +64,89 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovrd.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9d.lib&quot; dxguid.lib"
-				OutputFile="$(OutDir)\..\DX9HOOK\$(ProjectName).dll"
+				AdditionalDependencies="imagehlp.lib libovrd.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9d.lib&quot; dxguid.lib dxgi.lib MMDExport\MMDExport_x86.lib"
+				OutputFile="$(OutDir)\..\MikuMikuVREXE\$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\Win32\VS2010"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Debug|x64"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="2"
+			CharacterSet="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				AdditionalIncludeDirectories=""
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS;X64"
+				MinimalRebuild="true"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				UsePrecompiledHeader="2"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="imagehlp.lib libovr64d.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib d3dx9d.lib dxguid.lib dxgi.lib"
+				OutputFile="$(ProjectDir)\..\MikuMikuVREXE\x64\$(ProjectName).dll"
+				LinkIncremental="2"
+				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\x64\VS2010"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -137,8 +216,8 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9.lib&quot; dxguid.lib"
-				OutputFile="$(OutDir)\..\DX9HOOK\$(ProjectName).dll"
+				AdditionalDependencies="imagehlp.lib libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9.lib&quot; dxguid.lib MMDExport\MMDExport_x86.lib MMDExport\MMDExport_x64.lib"
+				OutputFile="$(OutDir)\..\MikuMikuVREXE\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\Win32\VS2010"
 				GenerateDebugInformation="true"
@@ -146,6 +225,85 @@
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|x64"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="2"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories=""
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS;X64"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="2"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="imagehlp.lib libovr64.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx9.lib dxguid.lib"
+				OutputFile="$(ProjectDir)\..\MikuMikuVREXE\x64\$(ProjectName).dll"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\x64\VS2010"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -195,7 +353,25 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						CompileAsManaged="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						CompileAsManaged="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -240,7 +416,23 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -279,7 +471,23 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
+						Name="Debug|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							UsePrecompiledHeader="0"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
 						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							UsePrecompiledHeader="0"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|x64"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -304,10 +512,6 @@
 			</File>
 			<File
 				RelativePath=".\MirrorWindow.h"
-				>
-			</File>
-			<File
-				RelativePath=".\MMDExport\MMDExport.h"
 				>
 			</File>
 			<File
@@ -371,10 +575,6 @@
 		</Filter>
 		<File
 			RelativePath=".\ReadMe.txt"
-			>
-		</File>
-		<File
-			RelativePath=".\Tutorial07.fx"
 			>
 		</File>
 	</Files>
