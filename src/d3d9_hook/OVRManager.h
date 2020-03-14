@@ -13,8 +13,6 @@ using namespace OVR;
 
 extern int g_nOVRFPS;
 
-extern ID3D11Device *g_pd3dDevice;
-extern ID3D11DeviceContext *g_pImmediateContext;
 
 extern ovrRecti g_EyeRenderViewport[OVR_EYE_NUM];
 
@@ -22,6 +20,8 @@ extern D3DXMATRIX g_matOVREyeProj[OVR_EYE_NUM];
 
 
 extern OculusRiftDevice *g_pRift;
+
+extern ovrPosef g_RiftLastPose[OVR_EYE_NUM];
 
 
 extern HRESULT OVRManager_Create();

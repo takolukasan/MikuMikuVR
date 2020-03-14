@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//  MikuMikuVR Camera
+//  MikuMikuVR オブジェクトレンダラー
 //  改造元：full.fx ver2.0 by 舞力介入P
 //  改変: たこルカさん               
 //
@@ -12,44 +12,87 @@
 
 // パラメータ宣言
 
-// ↓↓MMDMirrorView からも触るからパラメータ名、セマンティックス名編集禁止！↓↓
-
-texture MMEHACK_EFFECT_EYETEXTURENAMEL : OFFSCREENRENDERTARGET <
-	// サイズ変更禁止。
-	int Width = 1182;
-	int Height = 1461;
-	int Miplevels = 1;						// ミップマップいらない。
-	float4 ClearColor = { 1, 1, 1, 1 }; 	// RGBA
-	float ClearDepth = 1.0f;
-	bool AntiAlias = MIRROR_RT_ENABLE_AA;
-	string Description = "Render Target for RTEyeViewL";
-	string DefaultEffect = "self = hide; "OBJECT_CAMERA" = hide; "OBJECT_FOCUS" = hide; * = "MMEHACK_EFFECT_OVRRENDERL";";
->;
-
-texture MMEHACK_EFFECT_EYETEXTURENAMER : OFFSCREENRENDERTARGET <
-	// サイズ変更禁止。
-	int Width = 1182;
-	int Height = 1461;
-	int Miplevels = 1;						// ミップマップいらない。
-	float4 ClearColor = { 1, 1, 1, 1 }; 	// RGBA
-	float ClearDepth = 1.0f;
-	bool AntiAlias = MIRROR_RT_ENABLE_AA;
-	string Description = "Render Target for RTEyeViewR";
-	string DefaultEffect = "self = hide; "OBJECT_CAMERA" = hide; "OBJECT_FOCUS" = hide; * = "MMEHACK_EFFECT_OVRRENDERR";";
->;
-
-// ↑↑MMDMirrorView からも触るからパラメータ名、セマンティックス名編集禁止！↑↑
+static float3 DefaultFocusPosition = FOCUS_DEFAULT_POS;
 
 
-// 以降は、カメラオブジェクトの描画に意味使われるだけ。
-// MMD標準シェーダに戻そうが、逆に何も表示されないようにしようがお好みで。
+/* ↓↓将来の拡張のためにパラメータ名を変更しないことをオススメします↓↓ */
 
+bool bFixedFocus : CONTROLOBJECT < string name = OBJECT_FOCUS; >;
+float3 FixedFocusPosition : CONTROLOBJECT < string name = OBJECT_FOCUS; >;
+
+float3 MMDMV_eye : CONTROLOBJECT < string name = OBJECT_CAMERA; string item = OBJECT_CAMERA_ITEM; >;
+static float3 MMDMV_up = float3(0,1,0);
+
+float4x4 MMDOVR_ViewMatrix : MMDOVR_VIEW;		// Oculusの視点移動/回転行列。オリジナルのビューに掛ける
+float4x4 MMDOVR_ProjMatrix : MMDOVR_PROJECTION;	// Oculusの射影行列。オリジナルの行列と差し替える。
+
+const int MMDOVR_ViewType = MMEHACK_VIEWTYPE_VIEWPROJ;
+const int MMDOVR_ViewEye = MMEHACK_VIEWEYE_RIGHT;
+
+/* ↑↑将来の拡張のためにパラメータ名を変更しないことをオススメします↑↑ */
+
+
+inline float3 GetCameraPosition()
+{
+	return MMDMV_eye - float3(0,0,0);
+}
+
+inline float3 GetFocusPosition()
+{
+	float3 Focus;
+
+	if( bFixedFocus ) {
+		Focus = FixedFocusPosition;
+	}
+	else {
+		Focus = DefaultFocusPosition;
+	}
+
+	return Focus;
+}
+
+
+// この行列はMMD(MME)から取得する
+// ただし、ワールド・ビュー・プロジェクションはばらばらに取得する
 
 // 座法変換行列
-float4x4 WorldViewProjMatrix      : WORLDVIEWPROJECTION;
+// float4x4 WorldViewProjMatrix   : WORLDVIEWPROJECTION;
 float4x4 WorldMatrix              : WORLD;
-float4x4 ViewMatrix               : VIEW;
-float4x4 LightWorldViewProjMatrix : WORLDVIEWPROJECTION < string Object = "Light"; >;
+float4x4 ViewMatrixOrg            : VIEW;
+float4x4 ProjectionMatrix         : PROJECTION;
+
+
+// お好きにコメントアウトを切り替えればいい
+// 1. MMDのデフォルト視点
+// #define ViewMatrix ViewMatrixOrg
+// 2. MMDのカメラから見渡す
+#define ViewMatrix (mul(ViewMatrixOrg, MMDOVR_ViewMatrix))
+// 3. OBJECT_CAMERAで指定したオブジェクトからOBJECT_FOCUSへ向けた視点より、Oculusで見渡す
+// #define ViewMatrix mul( MatrixLookAtLH(GetCameraPosition(), GetFocusPosition(), MMDMV_up), MMDOVR_ViewMatrix)
+
+// 1. デフォルトの最終トランスフォーム行列
+// #define WorldViewProjMatrix (mul( mul( WorldMatrix, ViewMatrix), ProjectionMatrix))
+// 2. Oculus用射影行列を掛けたトランスフォーム行列
+#define WorldViewProjMatrix (mul( mul( WorldMatrix, ViewMatrix), MMDOVR_ProjMatrix))
+
+
+float4x4 LightWorldViewProjMatrixOrg : WORLDVIEWPROJECTION < string Object = "Light"; >;
+
+float4x4 LightWorldMatrix		  : WORLD < string Object = "Light"; >;
+float4x4 LightViewMatrix		  : VIEW < string Object = "Light"; >;
+float4x4 LightProjMatrix          : PROJECTION < string Object = "Light"; >;
+
+// 何か変換したほうがいいの？
+inline float4x4 GetLightMatrix()
+{
+	return LightWorldViewProjMatrixOrg;
+}
+
+#define LightWorldViewProjMatrix GetLightMatrix()
+
+
+// ↑ここで行列をいじりまくる
+
 
 float3   LightDirection    : DIRECTION < string Object = "Light"; >;
 float3   CameraPosition    : POSITION  < string Object = "Camera"; >;
@@ -140,8 +183,8 @@ float4 ColorRender_PS() : COLOR
 // 輪郭描画用テクニック
 technique EdgeTec < string MMDPass = "edge"; > {
     pass DrawEdge {
-        VertexShader = compile vs_2_0 ColorRender_VS();
-        PixelShader  = compile ps_2_0 ColorRender_PS();
+        VertexShader = compile vs_3_0 ColorRender_VS();
+        PixelShader  = compile ps_3_0 ColorRender_PS();
     }
 }
 
@@ -166,8 +209,8 @@ float4 Shadow_PS() : COLOR
 // 影描画用テクニック
 technique ShadowTec < string MMDPass = "shadow"; > {
     pass DrawShadow {
-        VertexShader = compile vs_2_0 Shadow_VS();
-        PixelShader  = compile ps_2_0 Shadow_PS();
+        VertexShader = compile vs_3_0 Shadow_VS();
+        PixelShader  = compile ps_3_0 Shadow_PS();
     }
 }
 
@@ -349,8 +392,8 @@ float4 ZValuePlot_PS( float4 ShadowMapTex : TEXCOORD0 ) : COLOR
 technique ZplotTec < string MMDPass = "zplot"; > {
     pass ZValuePlot {
         AlphaBlendEnable = FALSE;
-        VertexShader = compile vs_2_0 ZValuePlot_VS();
-        PixelShader  = compile ps_2_0 ZValuePlot_PS();
+        VertexShader = compile vs_3_0 ZValuePlot_VS();
+        PixelShader  = compile ps_3_0 ZValuePlot_PS();
     }
 }
 

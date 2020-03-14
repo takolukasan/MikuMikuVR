@@ -6,12 +6,14 @@
 #define RELEASE(p) if(p) { (p)->Release(); (p) = nullptr; }
 
 
+#define FILENAME_LENGTH		(1024)
 
 
 /* dllmain.cpp */
 extern HMODULE g_hModMyLibrary;
 extern BOOL g_bMMDHacked;
 extern BOOL g_bMMEHacked;
+extern TCHAR g_tcApplicationDirectory[FILENAME_LENGTH];
 
 
 // スレッドと同期用オブジェクト
@@ -30,10 +32,6 @@ extern HANDLE g_hSemaphoreMMDRenderSync;
 /* Direct3D9 インターフェース */
 extern IDirect3DSurface9 *g_pPrimaryBackBuffer;
 extern IDirect3DSurface9 *g_pPrimaryDepthStencil;
-extern IDirect3DSwapChain9 *g_pMirSwapChain;
-extern IDirect3DSurface9 *g_pMirBackBuffer;
-extern IDirect3DSurface9 *g_pMirDepthStencil;
-extern D3DSURFACE_DESC g_MirBackBufferDesc;
 
 
 #ifdef OVR_ENABLE
@@ -86,6 +84,7 @@ public:
 	/*** IDirect3DDevice9 methods ***/
     virtual HRESULT STDMETHODCALLTYPE BeginScene();
     virtual HRESULT STDMETHODCALLTYPE EndScene();
+    virtual HRESULT STDMETHODCALLTYPE Present(CONST RECT* pSourceRect,CONST RECT* pDestRect,HWND hDestWindowOverride,CONST RGNDATA* pDirtyRegion);
 	virtual HRESULT STDMETHODCALLTYPE CreateTexture(UINT Width,UINT Height,UINT Levels,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DTexture9** ppTexture,HANDLE* pSharedHandle);
 	virtual HRESULT STDMETHODCALLTYPE CreateVertexBuffer(UINT Length,DWORD Usage,DWORD FVF,D3DPOOL Pool,IDirect3DVertexBuffer9** ppVertexBuffer,HANDLE* pSharedHandle);
 	virtual HRESULT STDMETHODCALLTYPE CreateIndexBuffer(UINT Length,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DIndexBuffer9** ppIndexBuffer,HANDLE* pSharedHandle);

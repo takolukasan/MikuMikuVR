@@ -3,18 +3,7 @@
 
 #define OCULUSRIFT_SUPPORT_DIRECTX9
 
-#define OculusRift_MaxDevices	(16)
-
-#define MIRROR_EFFECT_FILE	L"OculusMirrorRender.fx"
-#define MIRROR_EFFECT_VS	"VSMirror"
-#define MIRROR_EFFECT_PS	"PSMirror"
-
-
-struct MirrorVertexBuffer
-{
-    XMFLOAT3 Pos;
-    XMFLOAT2 Tex;
-};
+#define OculusRift_MaxDevices	(1)
 
 
 /* このクラスのインスタンスを直接生成してはいけません(できません) */
@@ -25,7 +14,6 @@ class OculusRiftDevice {
 private:
 
 	int nMyDeviceIndex;
-	bool bDebugDevice;
 
 	HANDLE hHeap;
 
@@ -36,19 +24,20 @@ private:
 	ID3D11Device *pD3D11Device;
 	ID3D11DeviceContext *pD3D11Context;
 
-	ovrHmd HMD;
+	ovrSession Session;
+	ovrGraphicsLuid luidGPU;
 	ovrHmdDesc HmdDesc;
 	unsigned int uHmdCaps;
 	unsigned int uTrackingCaps;
 
-	ovrVector3f HmdToEyeViewOffset[ovrEye_Count];
+	ovrVector3f HmdToEyeOffset[ovrEye_Count];
     ovrRecti eyeRenderViewport[ovrEye_Count];
 	ovrEyeRenderDesc eyeRenderDesc[ovrEye_Count];
 	ovrPosef EyeRenderPose[ovrEye_Count];
 
-	ovrSwapTextureSet *pTextureSet[ovrEye_Count];
+	ovrTextureSwapChain EyeTextureSwapChain[ovrEye_Count];
+	ID3D11Texture2D **pEyeTexture[ovrEye_Count];
 	ID3D11RenderTargetView **pD3D11RTVSet[ovrEye_Count];
-	ID3D11ShaderResourceView **pMirrorTexSRV[ovrEye_Count];
 
 	ID3D11Texture2D *TexDepth[ovrEye_Count];
 	ID3D11DepthStencilView *pD3D11DSV[ovrEye_Count];
@@ -58,58 +47,52 @@ private:
 	UINT uMirrorWindowHeight;
 
 	IDXGISwapChain *pMirrorSwapChain;
-	ovrTexture *pMirrorTexture;
+	ovrMirrorTexture MirrorTexture;
 	ID3D11Texture2D *pMirrorBackBuffer;
 	ID3D11RenderTargetView *pMirrorRTV;
 	ID3D11Texture2D *pMirrorBackBufferDepth;
-	ID3D11DepthStencilView *pMirrorDSV;
 
-	ID3D11VertexShader *pMirrorVertexShader;
-	ID3D11PixelShader *pMirrorPixelShader;
-	ID3D11InputLayout *pMirrorVertexLayout;
-	ID3D11Buffer *pMirrorVertexBuffer;
-	ID3D11Buffer *pMirrorIndexBuffer;
-	ID3D11SamplerState *pMirrorSamplerState;
-
-
-	OculusRiftDevice(int nDeviceIndex, ovrHmd hmd);
+	OculusRiftDevice(int nDeviceIndex, ovrSession session, ovrGraphicsLuid luid);
 	~OculusRiftDevice();
 
 public:
 
 	/* オプション */
-	ovrHmd GetDevice() { return this->HMD; }
-	ID3D11Device *GetD3D11Dev() { return pD3D11Device; }
-	ID3D11DeviceContext *GetD3D11Context() { return pD3D11Context; }
-	ID3D11Texture2D *GetCurrentEyeTex(ovrEyeType eye) {
-		int nTexIndex = this->pTextureSet[eye]->CurrentIndex;
-		ovrD3D11Texture *pTex = (ovrD3D11Texture *)&(this->pTextureSet[eye]->Textures[nTexIndex]);
-		return pTex->D3D11.pTexture;
+	void GetLuid(LUID *pLUID) {
+		LUID *p;
+		if( pLUID ) {
+			p = (LUID *)&(this->luidGPU);
+			*pLUID = *p;
+		}
 	}
+	ID3D11Device *GetD3D11Device() { return pD3D11Device; }
+	ID3D11DeviceContext *GetD3D11Context() { return pD3D11Context; }
+	ID3D11Texture2D *GetBackBuffer() { return this->pMirrorBackBuffer; }
+	ID3D11Texture2D *GetCurrentEyeTex(ovrEyeType eye) {
+		int nTexIndex = 0;
+		ovr_GetTextureSwapChainCurrentIndex(this->Session, this->EyeTextureSwapChain[eye], &nTexIndex);
+		return pEyeTexture[eye][nTexIndex];
+	}
+	ovrResult GetEyeRenderTextureSize(ovrSizei *pLeft, ovrSizei *pRight) {
+		if( !pLeft && !pRight )
+			return ovrError_InvalidParameter;
 
+		ovrSizei idealSize[ovrEye_Count];
+		idealSize[ovrEye_Left] = ovr_GetFovTextureSize(this->Session, ovrEye_Left, this->HmdDesc.DefaultEyeFov[ovrEye_Left], 1.0f);
+		idealSize[ovrEye_Right] = ovr_GetFovTextureSize(this->Session, ovrEye_Right, this->HmdDesc.DefaultEyeFov[ovrEye_Right], 1.0f);
 
+		if( pLeft )
+			*pLeft = idealSize[ovrEye_Left];
+		if( pRight )
+			*pRight = idealSize[ovrEye_Right];
 
+		return ovrSuccess;
+	}
 
 	ovrResult GetOvrHmdDesc(ovrHmdDesc *ovrHmd);
 
-	unsigned int GetHmdCaps() {
-		this->uHmdCaps = ovrHmd_GetEnabledCaps(this->HMD);
-		return this->uHmdCaps;
-	}
-	void SetHmdCaps(unsigned int uCaps) {
-		this->uHmdCaps = uCaps & ovrHmdCap_Writable_Mask;
-		ovrHmd_SetEnabledCaps(this->HMD, this->uHmdCaps);
-	}
-	unsigned int GetHmdTrackingCaps() {
-		return this->uTrackingCaps;
-	}
-	ovrResult SetHmdTrackingCaps(unsigned int uCaps) {
-		this->uTrackingCaps = uCaps;
-		return ovrHmd_ConfigureTracking(this->HMD, this->uTrackingCaps, 0);
-	}
-
 	ovrResult ResetTracking() {
-		ovrHmd_RecenterPose(this->HMD);
+		ovr_RecenterTrackingOrigin(this->Session);
 		return ovrSuccess;
 	}
 
@@ -122,13 +105,13 @@ public:
 	/* レンダリング用にデバイス初期化も行わせる。引数を省略すると、既定のデバイス。 */
 	HRESULT InitializeDirectX(UINT uAdapter = 0);
 
+	ovrResult CreateEyeRenderTexture(ovrSizei EyeTexSize[ovrEye_Count]);
 
-	ovrResult CreateEyeRenderTexture(OVR::Sizei EyeTexSize[ovrEye_Count]);
 	ovrResult CreateEyeRenderTexture()
 	{
-		OVR::Sizei idealSize[ovrEye_Count];
-		idealSize[ovrEye_Left] = ovrHmd_GetFovTextureSize(this->HMD, (ovrEyeType)ovrEye_Left, this->HMD->DefaultEyeFov[ovrEye_Left], 1.0f);
-		idealSize[ovrEye_Right] = ovrHmd_GetFovTextureSize(this->HMD, (ovrEyeType)ovrEye_Right, this->HMD->DefaultEyeFov[ovrEye_Right], 1.0f);
+		ovrSizei idealSize[ovrEye_Count];
+		idealSize[ovrEye_Left] = ovr_GetFovTextureSize(this->Session, ovrEye_Left, this->HmdDesc.DefaultEyeFov[ovrEye_Left], 1.0f);
+		idealSize[ovrEye_Right] = ovr_GetFovTextureSize(this->Session, ovrEye_Right, this->HmdDesc.DefaultEyeFov[ovrEye_Right], 1.0f);
 		return CreateEyeRenderTexture(idealSize);
 	}
 
@@ -151,6 +134,9 @@ public:
 class OculusRift {
 	OculusRiftDevice *pDevices[OculusRift_MaxDevices];
 
+private:
+	static const int nTimeoutToDetectRiftInMiliseconds = 100;
+
 public:
 	OculusRift();
 	~OculusRift();
@@ -163,7 +149,6 @@ public:
 
 public:
 	ovrResult CreateDevice(int nDeviceIndex, OculusRiftDevice **ppDevice);
-	ovrResult CreateDebugDevice(int nDeviceIndex, OculusRiftDevice **ppDevice);
 	ovrResult DestoryDevice(int nDeviceIndex);
 	ovrResult DestoryDevice(OculusRiftDevice *pDevice)
 	{

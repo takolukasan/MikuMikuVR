@@ -53,8 +53,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,0,2,0
- PRODUCTVERSION 0,0,2,0
+ FILEVERSION 0,0,3,9
+ PRODUCTVERSION 0,0,3,9
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -70,12 +70,12 @@ BEGIN
         BLOCK "041104b0"
         BEGIN
             VALUE "FileDescription", "MikuMikuVR.dll ダイナミック リンク ライブラリ"
-            VALUE "FileVersion", "0, 0, 2, 0"
+            VALUE "FileVersion", "0, 0, 3, 9"
             VALUE "InternalName", "d3d9_hook_mmvr"
             VALUE "LegalCopyright", "Copyright (C) 2015 @TAKOLUKASAN"
             VALUE "OriginalFilename", "d3d9_hook.dll"
             VALUE "ProductName", "MikuMikuVR for Oculus Rift"
-            VALUE "ProductVersion", "0, 0, 2, 0"
+            VALUE "ProductVersion", "0, 0, 3, 9"
         END
     END
     BLOCK "VarFileInfo"
@@ -96,10 +96,6 @@ BEGIN
     BEGIN
         MENUITEM "視点初期化(&I)",                   ID_MENU_OCULUS_VIEWINIT
     END
-    POPUP "OVRモニタ表示(&V)"
-    BEGIN
-        MENUITEM "EyeTexture表示(&E)",            ID_MENU_OVR_EYETEXTURE
-    END
     POPUP "MMD制御(&M)"
     BEGIN
         MENUITEM "再生(&P)",                      ID_MMDCTRL_PLAY
@@ -107,6 +103,7 @@ BEGIN
     POPUP "ウィンドウ表示(&D)"
     BEGIN
         MENUITEM "最前面表示(&T)",                   ID_MENU_D_TOP
+        MENUITEM "サイズリセット(&R)",                 ID_MENU_D_SRESET
     END
     POPUP "ヘルプ(&H)", INACTIVE
     BEGIN
