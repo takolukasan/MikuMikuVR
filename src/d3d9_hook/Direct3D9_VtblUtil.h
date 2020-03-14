@@ -14,6 +14,8 @@ typedef struct IDirect3DVertexBuffer9_PrivateData {
 	UINT OffsetToLock;
 	UINT SizeToLock;
 	DWORD Flags;
+	BOOL BufferFirstWritten;
+	BYTE *_pLockedBuffer;
 } IDirect3DVertexBuffer9_PrivateData;
 
 EXTERNC uintptr_t HookIDirect3DVertexBuffer9_Hookvtable(IDirect3DVertexBuffer9 *p, UINT Length);

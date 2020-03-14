@@ -50,6 +50,7 @@ HANDLE g_hEyeTexShareHandle[OVR_EYE_NUM];
 #endif
 #endif
 
+#if 0
 #define RT_Swap() if( g_pMirBackBuffer && g_pMirDepthStencil) {		\
 	D3DVIEWPORT9 vp;												\
 	IDirect3DSurface9 *pSurf,*pDepth;								\
@@ -67,7 +68,7 @@ HANDLE g_hEyeTexShareHandle[OVR_EYE_NUM];
 	pSurf->Release();												\
 	pDepth->Release();												\
 }
-
+#endif
 
 static void CleanupD3DHookResources();
 
@@ -131,6 +132,8 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 	CloseHandle(g_hMainProcThread);
 	g_hMainProcThread = NULL;
 
+	InitializeCriticalSection(&g_csLockmatEyeView);
+
 	// これが終わるまでIDirect3D9::CreateDevice()、というよりOVR用バックバッファ作成をブロックさせる必要がある
 #ifdef OVR_ENABLE
 	if(SUCCEEDED(OVRManager_Create()) ) {
@@ -184,19 +187,38 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
         else
         {
 #ifdef OVR_ENABLE
-			ReleaseSemaphore(g_hSemaphoreMMDRenderSync, 1, NULL);
-			if( bOVRInitialized && g_pMMEHookMirrorRT && WAIT_OBJECT_0 == WaitForSingleObject(g_hSemaphoreOVRRenderSync, 30) ) {	/* MMD側描画完了 */
-				OVRDistortion_Render();
+			if( bOVRInitialized && g_pMMEHookMirrorRT ) {
+				static BOOL bMMDRenderTrigger = TRUE;
+
+				if( bMMDRenderTrigger ) {
+					bMMDRenderTrigger = FALSE;
+					OVRDistortion_Render1();
+				}
+
+				if( WAIT_OBJECT_0 == WaitForSingleObject(g_hSemaphoreOVRRenderSync, 0) ) {	/* MMD側描画完了 */
+					bMMDRenderTrigger = TRUE;
+
+					OVRDistortion_Render2();
+
+					/* リソース(テクスチャ)使用終了 & VSync完 */
+					ReleaseSemaphore(g_hSemaphoreMMDRenderSync, 1, NULL);
+
+					static int nFPSold = 0;
+					if( nFPSold != g_nOVRFPS ) {
+						TCHAR tcFPSBuffer[MAX_PATH];
+						swprintf_s(tcFPSBuffer, MAX_PATH, L"FPS: %d\n", g_nOVRFPS);
+						SetOVRWindowTitleSuffix(tcFPSBuffer);
+						nFPSold = g_nOVRFPS;
+					}
+				}
 			}
-			static int nFPSold = 0;
-			if( nFPSold != g_nOVRFPS ) {
-				TCHAR tcFPSBuffer[MAX_PATH];
-				swprintf_s(tcFPSBuffer, MAX_PATH, L"FPS: %d\n", g_nOVRFPS);
-				SetOVRWindowTitleSuffix(tcFPSBuffer);
-				nFPSold = g_nOVRFPS;
+			else {
+				/* 初期化未完了時は強制許可しないとMMDが止まる */
+				ReleaseSemaphore(g_hSemaphoreMMDRenderSync, 1, NULL);
+				Sleep(1);
 			}
 #else
-			Sleep(0);
+			Sleep(1);
 #endif
         }
     }
@@ -219,13 +241,14 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 
 	Sleep(100);
 
-	CloseHandle(g_hSemaphoreMMDShutdownBlock);
-
 	/* 運がよければ開放される・・・ */
 	if( pHookDirect3D9 && pHookDirect3D9->GetRefCnt() == 1 ) {
 		delete pHookDirect3D9;
 		pHookDirect3D9 = NULL;
 	}
+
+	DeleteCriticalSection(&g_csLockmatEyeView);
+	CloseHandle(g_hSemaphoreMMDShutdownBlock);
 
 	return 0;
 }
@@ -294,9 +317,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3D9MMD::CreateDevice(UINT Adapter,D3DDEVTY
 	// 付けておいたほうが安全？
 	BehaviorFlags |= D3DCREATE_MULTITHREADED;
 
-#ifdef _DEBUG
-	// Adapter = 1;
-#endif
 	hr = this->pOriginal->CreateDevice(Adapter, DeviceType, hFocusWindow, BehaviorFlags, pPresentationParameters, &p);
 
 	if( SUCCEEDED(hr) ) {
@@ -439,8 +459,15 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::BeginScene()
 {
 	HRESULT hr;
 	hr = this->pOriginal->BeginScene();
-	WaitForSingleObject(g_hSemaphoreMMDRenderSync, 30);
+#ifdef OVR_ENABLE
+	WaitForSingleObject(g_hSemaphoreMMDRenderSync, 1000);
+#endif
 	return hr;
+}
+
+HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::EndScene()
+{
+	return this->pOriginal->EndScene();
 }
 
 HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::CreateTexture(UINT Width,UINT Height,UINT Levels,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DTexture9** ppTexture,HANDLE* pSharedHandle)
@@ -461,55 +488,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::CreateTexture(UINT Width,UIN
 	return this->pOriginal->CreateTexture(Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
 }
 
-HRESULT STDMETHODCALLTYPE IDirect3DVertexBuffer9MMD_Lock(IDirect3DVertexBuffer9 *pthis, UINT OffsetToLock, UINT SizeToLock, void** ppbData, DWORD Flags)
-{
-	IDirect3DVertexBuffer9_PrivateData *pHook = HookIDirect3DVertexBuffer9_GetPrivateData(pthis);
-
-	DWORD dwLock = HookIDirect3DVertexBuffer9_GetOffset_Lock(pthis);
-	tIDirect3DVertexBuffer9_Lock pLock = (tIDirect3DVertexBuffer9_Lock)HookIDirect3DVertexBuffer9_GetMethod(pthis, dwLock);
-
-	/* Lock()に必要な情報を保存する */
-	pHook->OffsetToLock = OffsetToLock;
-	pHook->SizeToLock = SizeToLock;
-	pHook->Flags = Flags;
-
-	// ダミーバッファを返して、ここに書き込んでもらう。遅延Lockする。
-	// こうするとなぜか早くなる
-	if( pHook->pBuffer ) {
-		*ppbData = (void *)pHook->pBuffer;
-		return S_OK;
-	}
-
-	// return pLock(pthis, OffsetToLock, SizeToLock, ppbData, Flags);
-	return pLock(pthis, OffsetToLock, SizeToLock, ppbData, Flags | D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE);
-}
-
-HRESULT STDMETHODCALLTYPE IDirect3DVertexBuffer9MMD_Unlock(IDirect3DVertexBuffer9 *pthis)
-{
-	IDirect3DVertexBuffer9_PrivateData *pHook = HookIDirect3DVertexBuffer9_GetPrivateData(pthis);
-
-	DWORD dwLock = HookIDirect3DVertexBuffer9_GetOffset_Lock(pthis);
-	DWORD dwUnlock = HookIDirect3DVertexBuffer9_GetOffset_Unlock(pthis);
-	tIDirect3DVertexBuffer9_Lock pLock = (tIDirect3DVertexBuffer9_Lock)HookIDirect3DVertexBuffer9_GetMethod(pthis, dwLock);
-	tIDirect3DVertexBuffer9_Unlock pUnlock = (tIDirect3DVertexBuffer9_Unlock)HookIDirect3DVertexBuffer9_GetMethod(pthis, dwUnlock);
-
-	if( pHook->pBuffer ) {
-		HRESULT hr;
-		BYTE *pBuffer = NULL;
-		if( FAILED(hr = pLock(pthis, pHook->SizeToLock, pHook->OffsetToLock, (void **)&pBuffer, pHook->Flags | D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE)) ) {
-			return hr;
-		}
-
-		if( pHook->SizeToLock == 0 && pHook->OffsetToLock == 0 ) {
-			memcpy(pBuffer, pHook->pBuffer, pHook->Length);
-		}
-		else {
-			memcpy(pBuffer, pHook->pBuffer + pHook->OffsetToLock, pHook->SizeToLock);
-		}
-	}
-	return pUnlock(pthis);
-}
-
 HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::CreateVertexBuffer(UINT Length,DWORD Usage,DWORD FVF,D3DPOOL Pool,IDirect3DVertexBuffer9** ppVertexBuffer,HANDLE* pSharedHandle)
 {
 	//return this->pOriginal->CreateVertexBuffer(Length, Usage, FVF, Pool, ppVertexBuffer, pSharedHandle);
@@ -521,23 +499,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::CreateVertexBuffer(UINT Leng
 	else if( Pool == D3DPOOL_MANAGED ) {
 		Pool = D3DPOOL_DEFAULT;
 		Usage |= D3DUSAGE_DYNAMIC; //これがないとさらに遅くなる
-
-#if 0
-		HRESULT hr;
-		IDirect3DVertexBuffer9 *pVB = NULL;
-		hr = this->pOriginal->CreateVertexBuffer(Length, Usage, FVF, Pool, &pVB, pSharedHandle);
-
-		DWORD dwLock = HookIDirect3DVertexBuffer9_GetOffset_Lock(pVB);
-		DWORD dwUnlock = HookIDirect3DVertexBuffer9_GetOffset_Unlock(pVB);
-
-		HookIDirect3DVertexBuffer9_Hookvtable(pVB, Length);
-		HookIDirect3DVertexBuffer9_HookMethod(pVB, dwLock, (uintptr_t)IDirect3DVertexBuffer9MMD_Lock);
-		HookIDirect3DVertexBuffer9_HookMethod(pVB, dwUnlock, (uintptr_t)IDirect3DVertexBuffer9MMD_Unlock);
-
-		*ppVertexBuffer = pVB;
-
-		return hr;
-#endif
 	}
 #endif
 	return this->pOriginal->CreateVertexBuffer(Length, Usage, FVF, Pool, ppVertexBuffer, pSharedHandle);
@@ -599,15 +560,6 @@ HRESULT STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::SetViewport(CONST D3DVIEWPOR
 			g_vpMirror.Height = pTexDesc->Height;
 		}
 
-#if 0
-		AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW & (~WS_OVERLAPPED), TRUE);
-
-		g_rectLastMMDSize = rect;
-
-		if( g_bMMDSyncResize ) {
-			SetWindowPos(g_hWnd, 0, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOOWNERZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
-		}
-#endif
 	}
 
 	return this->pOriginal->SetViewport(pViewport);

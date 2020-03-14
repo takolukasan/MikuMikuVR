@@ -65,6 +65,7 @@ extern HANDLE g_hSemaphoreMMDInitBlock;
 extern HANDLE g_hSemaphoreMMDShutdownBlock;
 #ifdef OVR_ENABLE
 extern HANDLE g_hSemaphoreOVRRenderSync;
+extern HANDLE g_hSemaphoreMMDRenderSync;
 #endif
 
 
@@ -138,6 +139,7 @@ public:
 
 	/*** IDirect3DDevice9 methods ***/
     virtual HRESULT STDMETHODCALLTYPE BeginScene();
+    virtual HRESULT STDMETHODCALLTYPE EndScene();
 	virtual HRESULT STDMETHODCALLTYPE CreateTexture(UINT Width,UINT Height,UINT Levels,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DTexture9** ppTexture,HANDLE* pSharedHandle);
 	virtual HRESULT STDMETHODCALLTYPE CreateVertexBuffer(UINT Length,DWORD Usage,DWORD FVF,D3DPOOL Pool,IDirect3DVertexBuffer9** ppVertexBuffer,HANDLE* pSharedHandle);
 	virtual HRESULT STDMETHODCALLTYPE CreateIndexBuffer(UINT Length,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DIndexBuffer9** ppIndexBuffer,HANDLE* pSharedHandle);

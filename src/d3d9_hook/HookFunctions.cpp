@@ -2,11 +2,19 @@
 
 
 tDirect3DCreate9 g_orgDirect3DCreate9;
+#ifdef D3D9EX_ENABLE
+tDirect3DCreate9Ex DynDirect3DCreate9Ex;
+#endif
+
 tD3DXCreateEffectFromResourceA g_orgD3DXCreateEffectFromResourceA;
 tD3DXCreateTexture g_orgD3DXCreateTexture;
 tD3DXCreateTextureFromFileExA g_orgD3DXCreateTextureFromFileExA;
 tD3DXCreateTextureFromFileExW g_orgD3DXCreateTextureFromFileExW;
 tD3DXCreateTextureFromFileInMemoryEx g_orgD3DXCreateTextureFromFileInMemoryEx;
+#ifdef D3D9EX_ENABLE
+tD3DXLoadMeshFromXInMemory g_orgD3DXLoadMeshFromXInMemory;
+tD3DXLoadMeshFromXW g_orgD3DXLoadMeshFromXW;
+#endif
 
 
 
@@ -23,7 +31,12 @@ IDirect3D9 * WINAPI Hook_Direct3DCreate9(UINT SDKVersion)
 		pD3D = g_orgDirect3DCreate9(SDKVersion);
 	}
 	else {
-		Direct3DCreate9Ex(D3D_SDK_VERSION, &pD3DEx);
+		if( DynDirect3DCreate9Ex ) {
+			DynDirect3DCreate9Ex(D3D_SDK_VERSION, &pD3DEx);
+		}
+		else {
+			Direct3DCreate9Ex(D3D_SDK_VERSION, &pD3DEx);
+		}
 		if( pD3DEx ) {
 			pD3DEx->QueryInterface(IID_IDirect3D9, (void **)&pD3D);
 			pD3DEx->Release();
@@ -212,3 +225,37 @@ HRESULT WINAPI Hook_D3DXCreateEffectFromResourceA(
 #endif
 	return hr;
 }
+
+#ifdef D3D9EX_ENABLE
+HRESULT WINAPI Hook_D3DXLoadMeshFromXInMemory(
+        LPCVOID Memory,
+        DWORD SizeOfMemory,
+        DWORD Options, 
+        LPDIRECT3DDEVICE9 pD3DDevice, 
+        LPD3DXBUFFER *ppAdjacency,
+        LPD3DXBUFFER *ppMaterials, 
+        LPD3DXBUFFER *ppEffectInstances, 
+        DWORD *pNumMaterials,
+        LPD3DXMESH *ppMesh)
+{
+	Options &= ~(D3DXMESH_MANAGED);
+//	Options |= D3DXMESH_DYNAMIC | D3DXMESH_WRITEONLY;
+	return g_orgD3DXLoadMeshFromXInMemory(Memory, SizeOfMemory, Options, pD3DDevice, ppAdjacency, ppMaterials, ppEffectInstances, pNumMaterials, ppMesh);;
+}
+
+HRESULT WINAPI Hook_D3DXLoadMeshFromXW(
+        LPCWSTR pFilename, 
+        DWORD Options, 
+        LPDIRECT3DDEVICE9 pD3DDevice, 
+        LPD3DXBUFFER *ppAdjacency,
+        LPD3DXBUFFER *ppMaterials, 
+        LPD3DXBUFFER *ppEffectInstances, 
+        DWORD *pNumMaterials,
+        LPD3DXMESH *ppMesh)
+{
+	Options &= ~(D3DXMESH_MANAGED);
+//	Options |= D3DXMESH_DYNAMIC | D3DXMESH_WRITEONLY;
+	return g_orgD3DXLoadMeshFromXW(pFilename, Options, pD3DDevice, ppAdjacency, ppMaterials, ppEffectInstances, pNumMaterials, ppMesh);
+}
+#endif
+

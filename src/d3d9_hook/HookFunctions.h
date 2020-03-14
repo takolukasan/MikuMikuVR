@@ -1,6 +1,7 @@
 #ifndef _HOOKFUNCTIONS_H
 #define _HOOKFUNCTIONS_H
 
+#define D3D9_DLL_NAME		TEXT("d3d9.dll\0")
 
 /* HookImportFunction.cpp */
 BOOL HookFunctionOfModule(HMODULE hTargetModule, const char *szTargetFunctionName, void *pHookFunction, void **pTargetFunctionPrevious);
@@ -10,6 +11,10 @@ BOOL HookFunctionOfModule(HMODULE hTargetModule, const char *szTargetFunctionNam
 typedef IDirect3D9 * (WINAPI * tDirect3DCreate9)(UINT);
 extern tDirect3DCreate9 g_orgDirect3DCreate9;
 extern IDirect3D9 * WINAPI Hook_Direct3DCreate9(UINT SDKVersion);
+
+typedef HRESULT (WINAPI * tDirect3DCreate9Ex)(UINT SDKVersion, IDirect3D9Ex**);
+extern tDirect3DCreate9Ex DynDirect3DCreate9Ex;
+
 
 // Import from d3dx9_**.dll
 typedef HRESULT (WINAPI *tD3DXCreateTexture)(LPDIRECT3DDEVICE9, UINT, UINT, UINT, DWORD, D3DFORMAT, D3DPOOL, LPDIRECT3DTEXTURE9*);
@@ -105,7 +110,38 @@ extern HRESULT WINAPI Hook_D3DXCreateEffectFromResourceA(
         LPD3DXBUFFER*                   ppCompilationErrors);
 
 
+#ifdef D3D9EX_ENABLE
+typedef HRESULT (WINAPI *tD3DXLoadMeshFromXInMemory)(
+        LPCVOID, DWORD, DWORD, LPDIRECT3DDEVICE9, 
+        LPD3DXBUFFER *, LPD3DXBUFFER *, LPD3DXBUFFER *, DWORD *,
+        LPD3DXMESH *);
+extern tD3DXLoadMeshFromXInMemory g_orgD3DXLoadMeshFromXInMemory;
+HRESULT WINAPI Hook_D3DXLoadMeshFromXInMemory(
+        LPCVOID Memory,
+        DWORD SizeOfMemory,
+        DWORD Options, 
+        LPDIRECT3DDEVICE9 pD3DDevice, 
+        LPD3DXBUFFER *ppAdjacency,
+        LPD3DXBUFFER *ppMaterials, 
+        LPD3DXBUFFER *ppEffectInstances, 
+        DWORD *pNumMaterials,
+        LPD3DXMESH *ppMesh);
 
+
+typedef HRESULT (WINAPI *tD3DXLoadMeshFromXW)(
+        LPCWSTR, DWORD, LPDIRECT3DDEVICE9 , LPD3DXBUFFER *,
+        LPD3DXBUFFER *, LPD3DXBUFFER *, DWORD *,LPD3DXMESH *);
+extern tD3DXLoadMeshFromXW g_orgD3DXLoadMeshFromXW;
+HRESULT WINAPI Hook_D3DXLoadMeshFromXW(
+        LPCWSTR pFilename, 
+        DWORD Options, 
+        LPDIRECT3DDEVICE9 pD3DDevice, 
+        LPD3DXBUFFER *ppAdjacency,
+        LPD3DXBUFFER *ppMaterials, 
+        LPD3DXBUFFER *ppEffectInstances, 
+        DWORD *pNumMaterials,
+        LPD3DXMESH *ppMesh);
+#endif
 
 
 #endif // _HOOKFUNCTIONS_H
