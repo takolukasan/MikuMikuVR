@@ -110,7 +110,38 @@ extern HRESULT WINAPI Hook_D3DXCreateEffectFromResourceA(
         LPD3DXBUFFER*                   ppCompilationErrors);
 
 
+#ifdef D3D9EX_ENABLE
+typedef HRESULT (WINAPI *tD3DXLoadMeshFromXInMemory)(
+        LPCVOID, DWORD, DWORD, LPDIRECT3DDEVICE9, 
+        LPD3DXBUFFER *, LPD3DXBUFFER *, LPD3DXBUFFER *, DWORD *,
+        LPD3DXMESH *);
+extern tD3DXLoadMeshFromXInMemory g_orgD3DXLoadMeshFromXInMemory;
+HRESULT WINAPI Hook_D3DXLoadMeshFromXInMemory(
+        LPCVOID Memory,
+        DWORD SizeOfMemory,
+        DWORD Options, 
+        LPDIRECT3DDEVICE9 pD3DDevice, 
+        LPD3DXBUFFER *ppAdjacency,
+        LPD3DXBUFFER *ppMaterials, 
+        LPD3DXBUFFER *ppEffectInstances, 
+        DWORD *pNumMaterials,
+        LPD3DXMESH *ppMesh);
 
+
+typedef HRESULT (WINAPI *tD3DXLoadMeshFromXW)(
+        LPCWSTR, DWORD, LPDIRECT3DDEVICE9 , LPD3DXBUFFER *,
+        LPD3DXBUFFER *, LPD3DXBUFFER *, DWORD *,LPD3DXMESH *);
+extern tD3DXLoadMeshFromXW g_orgD3DXLoadMeshFromXW;
+HRESULT WINAPI Hook_D3DXLoadMeshFromXW(
+        LPCWSTR pFilename, 
+        DWORD Options, 
+        LPDIRECT3DDEVICE9 pD3DDevice, 
+        LPD3DXBUFFER *ppAdjacency,
+        LPD3DXBUFFER *ppMaterials, 
+        LPD3DXBUFFER *ppEffectInstances, 
+        DWORD *pNumMaterials,
+        LPD3DXMESH *ppMesh);
+#endif
 
 
 #endif // _HOOKFUNCTIONS_H

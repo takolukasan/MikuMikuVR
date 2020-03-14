@@ -13,7 +13,6 @@
 
 /* MMD(MME)からのD3DX関数コールはx86:ANSI/x64:Unicode(ロジック側で対応) まさに外道 */
 #define MMEHACK_EFFECT_RENDERTARGET	"MMDOVRCamera.fx"
-// #define MMEHACK_EFFECT_OBJRENDERER	"MMDMVRender.fx"
 #define MMEHACK_EFFECT_TEXTURENAME	"RTMirrorView"
 
 
@@ -29,6 +28,12 @@
 
 #define MMEHACK_EFFECT_SEMANTIC_OVR_VIEW "MMDOVR_VIEW"
 #define MMEHACK_EFFECT_SEMANTIC_OVR_PROJECTION "MMDOVR_PROJECTION"
+
+
+// 数学定数・関数定義
+#define M_PI			(3.141592654)
+#define DEG2RAD(deg)	(M_PI * (deg) / 180.0)
+
 
 
 // フックする関数の定義

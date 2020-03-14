@@ -146,6 +146,12 @@ class CHookIDirect3DDevice9MME : public CHookIDirect3DDevice9
 {
 private:
 	BOOL bShadowTarget;
+	D3DXMATRIX matEyeView[OVR_EYE_NUM];
+
+	/* Direct3D9 インターフェース */
+	IDirect3DSwapChain9 *pSwapChainMME;
+
+
 
 public:
 	CHookIDirect3DDevice9MME(::IDirect3DDevice9 *pDevice);
@@ -156,7 +162,16 @@ public:
 
 	/*** IDirect3DDevice9 methods ***/
 	virtual HRESULT STDMETHODCALLTYPE CreateVertexBuffer(UINT Length,DWORD Usage,DWORD FVF,D3DPOOL Pool,IDirect3DVertexBuffer9** ppVertexBuffer,HANDLE* pSharedHandle);
+    virtual HRESULT STDMETHODCALLTYPE BeginScene();
     virtual HRESULT STDMETHODCALLTYPE Present(CONST RECT* pSourceRect,CONST RECT* pDestRect,HWND hDestWindowOverride,CONST RGNDATA* pDirtyRegion);
+
+
+	void GetEyeViewMatrix(D3DXMATRIX *matViewLeft, D3DXMATRIX *matViewRight) {
+		if( matViewLeft )
+			*matViewLeft = matEyeView[OVR_EYE_LEFT];
+		if( matViewRight )
+			*matViewRight = matEyeView[OVR_EYE_RIGHT];
+	}
 
 };
 
