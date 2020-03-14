@@ -7,8 +7,6 @@
 #define MMD_MENU_FULLSCREEN	(290)
 #define MMD_MENU_FPSNOLIMIT	(234)
 
-#define MMD_BUTTON_PLAY		(0x198)
-
 
 #define BUFFER_SIZE	(1024)	/* 汎用バッファサイズ定義 */
 
@@ -41,6 +39,8 @@ enum MIRROR_RENDER_FLAGS {
 
 extern HWND g_hWnd;
 extern RECT g_ClientRect;
+// extern MIRROR_RENDER_FLAGS g_MirrorRenderObj;
+// extern BOOL g_bMMDSyncResize;
 extern WNDPROC g_WndMMDSubProc;
 
 
@@ -51,11 +51,8 @@ extern BOOL bOVREyeTexMirror;
 
 /* MMDウィンドウ管理 */
 extern HWND g_hWndMMD;
+// extern RECT g_rectLastMMDSize;
 
-extern double g_dMovingPosX;
-extern double g_dMovingPosY;
-extern double g_dMovingPosZ;
-extern double g_dRotationY;
 
 
 extern HRESULT InitWindow( HINSTANCE hInstance, int nCmdShow );

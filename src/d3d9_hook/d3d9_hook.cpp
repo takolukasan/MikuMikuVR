@@ -132,8 +132,6 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 	CloseHandle(g_hMainProcThread);
 	g_hMainProcThread = NULL;
 
-	InitializeCriticalSection(&g_csLockmatEyeView);
-
 	// これが終わるまでIDirect3D9::CreateDevice()、というよりOVR用バックバッファ作成をブロックさせる必要がある
 #ifdef OVR_ENABLE
 	if(SUCCEEDED(OVRManager_Create()) ) {
@@ -241,14 +239,13 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 
 	Sleep(100);
 
+	CloseHandle(g_hSemaphoreMMDShutdownBlock);
+
 	/* 運がよければ開放される・・・ */
 	if( pHookDirect3D9 && pHookDirect3D9->GetRefCnt() == 1 ) {
 		delete pHookDirect3D9;
 		pHookDirect3D9 = NULL;
 	}
-
-	DeleteCriticalSection(&g_csLockmatEyeView);
-	CloseHandle(g_hSemaphoreMMDShutdownBlock);
 
 	return 0;
 }
@@ -317,6 +314,9 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3D9MMD::CreateDevice(UINT Adapter,D3DDEVTY
 	// 付けておいたほうが安全？
 	BehaviorFlags |= D3DCREATE_MULTITHREADED;
 
+#ifdef _DEBUG
+	// Adapter = 1;
+#endif
 	hr = this->pOriginal->CreateDevice(Adapter, DeviceType, hFocusWindow, BehaviorFlags, pPresentationParameters, &p);
 
 	if( SUCCEEDED(hr) ) {
@@ -560,6 +560,15 @@ HRESULT STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::SetViewport(CONST D3DVIEWPOR
 			g_vpMirror.Height = pTexDesc->Height;
 		}
 
+#if 0
+		AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW & (~WS_OVERLAPPED), TRUE);
+
+		g_rectLastMMDSize = rect;
+
+		if( g_bMMDSyncResize ) {
+			SetWindowPos(g_hWnd, 0, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOOWNERZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
+		}
+#endif
 	}
 
 	return this->pOriginal->SetViewport(pViewport);

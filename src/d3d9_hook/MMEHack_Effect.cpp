@@ -111,7 +111,7 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 
 	if( SUCCEEDED(hr) ) {
 		size_t index,len1,len2;
-		int nCompResult_RT;
+		int nCompResult_RT,nCompResult_OBJ;
 #ifdef OVR_ENABLE
 		int nCompResult_EyeRT[OVR_EYE_NUM];
 #endif
@@ -127,6 +127,13 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 		szFilename = MMEHACK_EFFECT_RENDERTARGET;
 		len2 = strlen(szFilename);
 		nCompResult_RT = CompareStringA(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
+
+#if 0
+		// MMEHACK_EFFECT_OBJRENDERER : Object renderer
+		szFilename = MMEHACK_EFFECT_OBJRENDERER;
+		len2 = strlen(szFilename);
+		nCompResult_OBJ = CompareStringA(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
+#endif
 
 #ifdef OVR_ENABLE
 		// MMEHACK_EFFECT_OVRRENDERL : OVR Eye renderer Left
@@ -151,6 +158,13 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 		szFilename = TEXT(MMEHACK_EFFECT_RENDERTARGET);
 		len2 = wcslen(szFilename);
 		nCompResult_RT = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
+
+#if 0
+		// MMEHACK_EFFECT_OBJRENDERER : Object renderer
+		szFilename = TEXT(MMEHACK_EFFECT_OBJRENDERER);
+		len2 = wcslen(szFilename);
+		nCompResult_OBJ = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, pSrcFile + index, (int)(len1 - index), szFilename, (int)len2);
+#endif
 
 #ifdef OVR_ENABLE
 		// MMEHACK_EFFECT_OVRRENDERL : OVR Eye renderer Left
@@ -544,14 +558,38 @@ HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::CloneEffect(LPDIRECT3DDEV
 	return hr;
 }
 
+extern D3DXMATRIX matEyeView[OVR_EYE_NUM];
+extern BOOL bSync;
+
 HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::Begin(UINT *pPasses, DWORD Flags)
 {
 	static D3DXMATRIX matEye[OVR_EYE_NUM];
 
-	pMMEHookDirect3DDevice9->GetEyeViewMatrix(&matEye[OVR_EYE_LEFT], &matEye[OVR_EYE_RIGHT]);
+	if( bSync ) {
+		matEye[OVR_EYE_LEFT] = matEyeView[OVR_EYE_LEFT];
+		matEye[OVR_EYE_RIGHT] = matEyeView[OVR_EYE_RIGHT];
+		bSync = FALSE;
+	}
+
+	int nEye = this->nOVREye;
+
+#if 0
+	if( nEye == 0 ) {
+		D3DXHANDLE hView = this->pOriginal->GetParameterBySemantic(NULL, "VIEW");
+		D3DXMATRIX matView;
+		this->pOriginal->GetMatrix(hView, &matView);
+		D3DXVECTOR3 vecEye = D3DXVECTOR3(matView.m[0][2], matView.m[1][2], matView.m[2][2]);
+		D3DXVECTOR3 vecForward;
+		D3DXMATRIX mat;
+		D3DXVec3Scale(&vecForward, &vecEye, -35.0f);
+		D3DXMatrixTranslation(&mat, vecForward.x, vecForward.y, vecForward.z);
+
+		matEye[nEye] = mat * matEyeView[nEye];
+	}
+#endif
 
 	if( this->hViewMatrix ) {
-		this->pOriginal->SetMatrix(this->hViewMatrix, &matEye[this->nOVREye]);
+		this->pOriginal->SetMatrix(this->hViewMatrix, &matEye[nEye]);
 	}
 
 	return this->pOriginal->Begin(pPasses, Flags);

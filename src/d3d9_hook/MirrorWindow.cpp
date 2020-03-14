@@ -1,7 +1,7 @@
 #include "stdafx.h"
 
 
-#define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.10")
+#define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.02 alpha")
 #define CLASS_NAME			TEXT("MMDOVRHookClass")
 #define WINDOW_TITLE_OVR	TEXT("MikuMikuVR Mirror")
 #define CLASS_NAME_OVR		TEXT("MMDOVRMirrorClass")
@@ -22,24 +22,21 @@ BOOL bOVREyeTexMirror;
 
 /* MMDウィンドウ管理 */
 HWND g_hWndMMD;
+// RECT g_rectLastMMDSize;
 
-static const double g_MoveOffset = 0.2f;
-static const double g_RotateOffset = DEG2RAD(0.5);
 
-double g_dMovingPosX;
-double g_dMovingPosY;
-double g_dMovingPosZ;
-double g_dRotationY;
+
 
 
 static BOOL bCloseEnable = FALSE;
 
-
+/* 初期値はグリッド線のみ表示 */
+// MIRROR_RENDER_FLAGS g_MirrorRenderObj = MIRROR_RENDER_MODEL_INIT;
+// BOOL g_bMMDSyncResize = TRUE;
 WNDPROC g_WndMMDSubProc;
 
 static LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam );
 static LRESULT CALLBACK WndProcDistortion( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam );
-static void KeyPressProc(WPARAM wpKey);
 static void MenuSelectionProc( UINT uMenuItemId );
 static LRESULT CALLBACK MMDSubWndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam );
 
@@ -214,65 +211,11 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 				MenuSelectionProc(LOWORD(wParam));
 			}
 			break;
-
-		case WM_KEYDOWN:
-			KeyPressProc(wParam);
-			break;
-
 		default:
             return DefWindowProc( hWnd, message, wParam, lParam );
     }
 
     return 0;
-}
-
-static void KeyPressProc(WPARAM wpKey)
-{
-	switch( wpKey ) {
-		case VK_UP:
-		case VK_NUMPAD8:
-			g_dMovingPosX += g_MoveOffset * sin(g_dRotationY);
-			g_dMovingPosZ -= g_MoveOffset * cos(g_dRotationY);
-			break;
-		case VK_DOWN:
-		case VK_NUMPAD2:
-			g_dMovingPosX -= g_MoveOffset * sin(g_dRotationY);
-			g_dMovingPosZ += g_MoveOffset * cos(g_dRotationY);
-			break;
-		case VK_LEFT:
-		case VK_NUMPAD4:
-			g_dMovingPosX += g_MoveOffset * cos(g_dRotationY);
-			g_dMovingPosZ += g_MoveOffset * sin(g_dRotationY);
-			break;
-		case VK_RIGHT:
-		case VK_NUMPAD6:
-			g_dMovingPosX -= g_MoveOffset * cos(g_dRotationY);
-			g_dMovingPosZ -= g_MoveOffset * sin(g_dRotationY);
-			break;
-		case VK_NUMPAD7:
-			g_dMovingPosY += g_MoveOffset;
-			break;
-		case VK_NUMPAD9:
-			g_dMovingPosY -= g_MoveOffset;
-			break;
-		case VK_NUMPAD1:
-			g_dRotationY += g_RotateOffset;
-			break;
-		case VK_NUMPAD3:
-			g_dRotationY -= g_RotateOffset;
-			break;
-		case VK_SPACE:
-			MenuSelectionProc(ID_MMDCTRL_PLAY);
-			break;
-		case 'R':
-			MenuSelectionProc(ID_MENU_OCULUS_VIEWINIT);
-			break;
-		case 'M':
-			MenuSelectionProc(ID_MENU_OVR_MIRROR);
-			MenuSelectionProc(ID_MENU_OVR_EYETEXTURE);
-			break;
-	}
-
 }
 
 static void MenuSelectionProc( UINT uMenuItemId )
@@ -316,12 +259,6 @@ static void MenuSelectionProc( UINT uMenuItemId )
 			break;
 		case ID_MENU_OCULUS_VIEWINIT:
 			ovrHmd_RecenterPose(g_HMD);
-
-			g_dMovingPosX = 0.0f;
-			g_dMovingPosY = 0.0f;
-			g_dMovingPosZ = 0.0f;
-			g_dRotationY = 0.0f;
-
 			break;
 		case ID_MENU_OCULUS_REINIT:
 			{
@@ -392,12 +329,31 @@ static void MenuSelectionProc( UINT uMenuItemId )
 			}
 			break;
 #endif
-		case ID_MMDCTRL_PLAY:
-			PostMessage(g_hWndMMD, WM_COMMAND, MMD_MENU_FPSNOLIMIT, 0);
-			PostMessage(g_hWndMMD, WM_COMMAND, MMD_BUTTON_PLAY, NULL);
+		case ID_MENU_RENDER_FOV:
+			bItemChecking = !bItemChecked;
+			break;
+#if 0
+		case ID_MENU_D_MMD:
+
+			bItemChecking = TRUE;
+			CheckMenuItem(g_hMenu, (UINT)ID_MENU_D_FIXED, MF_BYCOMMAND | MF_UNCHECKED);
+
+			SetWindowPos(g_hWnd, 0, 0, 0,
+				g_rectLastMMDSize.right - g_rectLastMMDSize.left,
+				g_rectLastMMDSize.bottom - g_rectLastMMDSize.top,
+				SWP_NOOWNERZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
+
+			g_bMMDSyncResize = TRUE;
 
 			break;
+		case ID_MENU_D_FIXED:
 
+			bItemChecking = TRUE;
+			CheckMenuItem(g_hMenu, (UINT)ID_MENU_D_MMD, MF_BYCOMMAND | MF_UNCHECKED);
+
+			g_bMMDSyncResize = FALSE;
+
+			break;
 		case ID_MENU_D_TOP:
 
 			bItemChecking = !bItemChecked;
@@ -410,6 +366,7 @@ static void MenuSelectionProc( UINT uMenuItemId )
 			}
 
 			break;
+#endif
 
 		default:
 			break;
@@ -434,9 +391,6 @@ static LRESULT CALLBACK WndProcDistortion( HWND hWnd, UINT message, WPARAM wPara
 				DestroyWindow(hWnd);
 			}
 			return 0;
-		case WM_KEYDOWN:
-			KeyPressProc(wParam);
-			break;
 		default:
             return DefWindowProc( hWnd, message, wParam, lParam );
     }

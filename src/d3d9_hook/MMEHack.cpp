@@ -25,7 +25,6 @@ CHookIDirect3D9MME *pMMEHookDirect3D9;
 CHookIDirect3DDevice9MME *pMMEHookDirect3DDevice9;
 
 
-
 // もっと削れる
 #if 0
 #define RT_Swap() if( g_pMirBackBuffer && g_pMirDepthStencil) {		\
@@ -433,6 +432,10 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3D9MME::CreateDevice(UINT Adapter,D3DDEVTY
 	// pPresentationParameters->MultiSampleType = D3DMULTISAMPLE_NONE;
 	// pPresentationParameters->MultiSampleQuality = 0; 
 
+	// pPresentationParameters->MultiSampleType = D3DMULTISAMPLE_8_SAMPLES;
+	// pPresentationParameters->MultiSampleQuality = 3; 
+	// pPresentationParameters->Flags |= D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;
+
 	BehaviorFlags |= D3DCREATE_MULTITHREADED;
 #endif
 
@@ -453,7 +456,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3D9MME::CreateDevice(UINT Adapter,D3DDEVTY
 
 			g_bMMEHacked = TRUE;
 		}
-
 	}
 
 	return hr;
@@ -464,17 +466,12 @@ CHookIDirect3DDevice9MME::CHookIDirect3DDevice9MME(::IDirect3DDevice9 *pDevice)
 	if(pDevice) {
 		this->pOriginal = pDevice;
 		this->AddRef();
-		if( FAILED(pDevice->GetSwapChain(0, &this->pSwapChainMME) ) ) {
-			this->pSwapChainMME = NULL;
-		}
 	}
 }
 
 CHookIDirect3DDevice9MME::~CHookIDirect3DDevice9MME()
 {
 	/* pOriginal->Release() は CHookIDirect3DDevice9::~CHookIDirect3DDevice9 で実施 */
-
-	RELEASE(this->pSwapChainMME);
 }
 
 // CHookIDirect3DDevice9MME::IUnknown
@@ -532,9 +529,9 @@ static HRESULT STDMETHODCALLTYPE IDirect3DVertexBuffer9MME_Unlock(IDirect3DVerte
 	tIDirect3DVertexBuffer9_Unlock pUnlock = (tIDirect3DVertexBuffer9_Unlock)HookIDirect3DVertexBuffer9_GetMethod(pthis, dwUnlock);
 
 	if( pHook->BufferFirstWritten && pHook->pBuffer ) {
+		HRESULT hr;
 		BYTE *pBuffer = NULL;
 #if 0
-		HRESULT hr;
 		if( FAILED(hr = pLock(pthis, pHook->SizeToLock, pHook->OffsetToLock, (void **)&pBuffer, pHook->Flags | D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE)) ) {
 			return hr;
 		}
@@ -585,20 +582,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::CreateVertexBuffer(UINT Leng
 		return hr;
 	}
 	return this->pOriginal->CreateVertexBuffer(Length, Usage, FVF, Pool, ppVertexBuffer, pSharedHandle);
-}
-
-HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::BeginScene()
-{
-	HRESULT hr;
-	hr = this->pOriginal->BeginScene();
-
-	if( TryEnterCriticalSection(&g_csLockmatEyeView) ) {
-		this->matEyeView[OVR_EYE_LEFT] = g_matEyeView[OVR_EYE_LEFT];
-		this->matEyeView[OVR_EYE_RIGHT] = g_matEyeView[OVR_EYE_RIGHT];
-		LeaveCriticalSection(&g_csLockmatEyeView);
-	}
-
-	return hr;
 }
 
 HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::Present(CONST RECT* pSourceRect,CONST RECT* pDestRect,HWND hDestWindowOverride,CONST RGNDATA* pDirtyRegion)
@@ -721,12 +704,7 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::Present(CONST RECT* pSourceR
 		g_pMirSwapChain->Present(NULL, NULL, g_hWnd, NULL, D3DPRESENT_DONOTWAIT);
 	}
 
-	if( this->pSwapChainMME ) {
-		hr = this->pSwapChainMME->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion, D3DPRESENT_DONOTWAIT);
-	}
-	else {
-		hr = this->pOriginal->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
-	}
+	hr = this->pOriginal->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 
 	/* ここがおそらく一番ヒマなタイミングになるはず？ */
 

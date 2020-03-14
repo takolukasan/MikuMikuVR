@@ -28,9 +28,6 @@ extern D3DXMATRIX g_matOVREyeProj[OVR_EYE_NUM];
 
 extern HANDLE hOVREyeViewThread;
 
-extern CRITICAL_SECTION g_csLockmatEyeView;
-extern D3DXMATRIX g_matEyeView[OVR_EYE_NUM];
-
 
 
 extern HRESULT OVRManager_Create();

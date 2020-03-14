@@ -64,7 +64,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovrd.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9d.lib&quot; dxguid.lib dxgi.lib MMDExport\MMDExport_x86.lib"
+				AdditionalDependencies="imagehlp.lib libovrd.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9d.lib&quot; dxguid.lib dxgi.lib"
 				OutputFile="$(OutDir)\..\MikuMikuVREXE\$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\Win32\VS2010"
@@ -140,7 +140,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovr64d.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib d3dx9d.lib dxguid.lib dxgi.lib"
+				AdditionalDependencies="imagehlp.lib libovr64d.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x64\d3dx9d.lib&quot; dxguid.lib dxgi.lib"
 				OutputFile="$(ProjectDir)\..\MikuMikuVREXE\x64\$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\x64\VS2010"
@@ -216,7 +216,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9.lib&quot; dxguid.lib MMDExport\MMDExport_x86.lib MMDExport\MMDExport_x64.lib"
+				AdditionalDependencies="imagehlp.lib libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9.lib&quot; dxguid.lib"
 				OutputFile="$(OutDir)\..\MikuMikuVREXE\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\Win32\VS2010"
@@ -295,7 +295,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovr64.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx9.lib dxguid.lib"
+				AdditionalDependencies="imagehlp.lib libovr64.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x64\d3dx9.lib&quot; dxguid.lib"
 				OutputFile="$(ProjectDir)\..\MikuMikuVREXE\x64\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\x64\VS2010"
