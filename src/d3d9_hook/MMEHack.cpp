@@ -3,7 +3,6 @@
 #define MME_DLL_NAME		D3D9_DLL_NAME
 #define MMEFFECT_DLL_NAME	TEXT("MMEffect.dll\0")
 #define MMHACK_DLL_NAME		TEXT("MMHack.dll\0")
-#define FILENAME_LENGTH		(1024)
 
 
 /* Direct3D9 実装インターフェースポインタ */
@@ -36,7 +35,8 @@ static HRESULT MMEHack_GarbageCollection()
 	if( g_pMMEHookMirrorRT ) {
 		if( g_pMMEHookMirrorRT->GetRefCnt() == 1 ) {
 			delete g_pMMEHookMirrorRT;
-			g_pMMEHookMirrorRT = NULL;
+			g_pMMEHookMirrorRT = nullptr;
+			SendMessage(g_hWnd, WM_MMVR_EFFECTUNLOADED, 0, 0);
 		}
 	}
 
@@ -551,6 +551,7 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::CreateVertexBuffer(UINT Leng
 HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::BeginScene()
 {
 	HRESULT hr;
+
 	hr = this->pOriginal->BeginScene();
 
 	if( g_pRift ) {
@@ -568,7 +569,15 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::BeginScene()
 
 		D3DXMATRIX matProj[ovrEye_Count];
 		if( g_dFovZoom < 1.0 ) {
-			g_pRift->GetProjectionMatrix(matProj, g_dFovZoom);
+			if( g_pMMEHookMirrorRT ) {
+				float zNear, zFar;
+				zNear = g_pMMEHookMirrorRT->GetProjZNear();
+				zFar = g_pMMEHookMirrorRT->GetProjZFar();
+				g_pRift->GetProjectionMatrix(matProj, g_dFovZoom, zNear, zFar);
+			}
+			else {
+				g_pRift->GetProjectionMatrix(matProj, g_dFovZoom);
+			}
 		}
 		else {
 			matProj[OVR_EYE_LEFT] = g_matOVREyeProj[OVR_EYE_LEFT];
@@ -580,9 +589,20 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::BeginScene()
 	return hr;
 }
 
+HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::EndScene()
+{
+	return this->pOriginal->EndScene();
+}
+
 HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::Present(CONST RECT* pSourceRect,CONST RECT* pDestRect,HWND hDestWindowOverride,CONST RGNDATA* pDirtyRegion)
 {
 	HRESULT hr = S_OK;
+
+#if 0
+	if( g_pProfiler ) {
+		g_pProfiler->LeaveCheckPoint();
+		g_pProfiler->EnterCheckPoint(TEXT("CHookIDirect3DDevice9MME::Present() / copy eye texture"));
+	}
 
 	if( g_pMMEHookMirrorRT ) {
 		RECT rectSrc = { 0, 0, 0, 0 };
@@ -590,19 +610,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::Present(CONST RECT* pSourceR
 #ifdef OVR_ENABLE
 		int i;
 		RECT rectDst = { 0, 0, 0, 0 };
-
-		RECT rectDstMir[2];
-		if( bOVREyeTexMirror ) {
-			rectDstMir[0].left = 0;
-			rectDstMir[0].top = 0;
-			rectDstMir[0].right = g_MirBackBufferDesc.Width / 2;
-			rectDstMir[0].bottom = g_MirBackBufferDesc.Height;
-
-			rectDstMir[1].left = g_MirBackBufferDesc.Width / 2;
-			rectDstMir[1].top = 0;
-			rectDstMir[1].right = g_MirBackBufferDesc.Width;
-			rectDstMir[1].bottom = g_MirBackBufferDesc.Height;
-		}
 
 		D3DSURFACE_DESC *pTexDesc;
 
@@ -616,10 +623,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::Present(CONST RECT* pSourceR
 			/* D3D11送信用テクスチャへコピー */
 			hr = this->pOriginal->StretchRect(g_pMMEHookMirrorRT->GetEyeSurface(i), &rectSrc, g_pEyeSurf[i], &rectDst, D3DTEXF_NONE);
 
-			if( bOVREyeTexMirror ) {
-				/* 左右の目のテクスチャをミラー表示用のバックバッファにコピーする */
-				this->pOriginal->StretchRect(g_pMMEHookMirrorRT->GetEyeSurface(i), &rectSrc, g_pMirBackBuffer, &rectDstMir[i], D3DTEXF_NONE);
-			}
 		}
 #endif
 
@@ -629,13 +632,12 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::Present(CONST RECT* pSourceR
 #endif
 
 	}
-	else {
-	}
 
-
-	if( g_pMirSwapChain && g_hWnd && bOVREyeTexMirror ) {
-		g_pMirSwapChain->Present(NULL, NULL, g_hWnd, NULL, D3DPRESENT_DONOTWAIT);
+	if( g_pProfiler ) {
+		g_pProfiler->LeaveCheckPoint();
+		g_pProfiler->EnterCheckPoint(TEXT("CHookIDirect3DDevice9MME::Present() completed"));
 	}
+#endif
 
 	if( this->pSwapChainMME ) {
 		hr = this->pSwapChainMME->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion, D3DPRESENT_DONOTWAIT);

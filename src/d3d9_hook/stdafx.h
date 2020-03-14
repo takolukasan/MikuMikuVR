@@ -19,6 +19,15 @@
 #define OVR_ENABLE
 #endif
 
+
+// #define DEBUG_CONSOLE
+#ifdef DEBUG_CONSOLE
+void PrintConsole(const char *szString, const int *pInt = NULL);
+void PrintConsole(const char *szString, const char *szString2);
+#else
+#define PrintConsole(a,b)
+#endif
+
 // TODO: プログラムに必要な追加ヘッダーをここで参照してください。
 #include <new>
 #include <vector>
@@ -48,10 +57,8 @@
 
 #ifdef OVR_ENABLE
 
-#include "LibOVR/Include/OVR.h"
-#define OVR_D3D_VERSION 11
 #include "LibOVR/Include/OVR_CAPI_D3D.h"
-#undef OVR_D3D_VERSION
+#include <Kernel/OVR_Nullptr.h>
 
 #include "OculusRift/OculusRift.h"
 
@@ -70,3 +77,5 @@
 #include "MMEHack_Effect.h"
 
 #include "Direct3D9_VtblUtil.h"
+
+#include "RenderProfiler.h"

@@ -167,19 +167,31 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 		if( CSTR_EQUAL == nCompResult_RT ) {
 			if( g_pMMEHookMirrorRT && g_pMMEHookMirrorRT->GetRefCnt() == 1 ) {	/* ‚±‚±‚Ü‚Å‚É‚¨s‹V‚æ‚­Release()‚µ‚Ä‚­‚ê‚Ä‚é‚æ‚¤‚¾‚ªEEE */
 				delete g_pMMEHookMirrorRT;
+				g_pMMEHookMirrorRT = nullptr;
+				SendMessage(g_hWnd, WM_MMVR_EFFECTUNLOADED, 0, 0);
 			}
-			g_pMMEHookMirrorRT = new CHookID3DXEffectMMEMirrorRT(p);
 
-			if( !g_pMMEHookMirrorRT ) {
-				*ppEffect = p;
-			}
-			else if( FAILED(g_pMMEHookMirrorRT->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
-				*ppEffect = p;
-				delete g_pMMEHookMirrorRT;
-				g_pMMEHookMirrorRT = NULL;
+			if( g_pMMEHookMirrorRT == nullptr ) {
+				g_pMMEHookMirrorRT = new CHookID3DXEffectMMEMirrorRT(p);
+
+				if( g_pMMEHookMirrorRT == nullptr ) {
+					*ppEffect = p;
+					PrintConsole("MMEffectHack_D3DXCreateEffectFromFile[A/W]:RT buffer effect load failed.");
+				}
+				else if( FAILED(g_pMMEHookMirrorRT->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
+					*ppEffect = p;
+					delete g_pMMEHookMirrorRT;
+					g_pMMEHookMirrorRT = NULL;
+					PrintConsole("MMEffectHack_D3DXCreateEffectFromFile[A/W]:RT buffer effect load failed.");
+				}
+				else {
+					p->Release();
+					PrintConsole("MMEffectHack_D3DXCreateEffectFromFile[A/W]:RT buffer effect load succeeded.");
+					SendMessage(g_hWnd, WM_MMVR_EFFECTLOADED, 0, 0);
+				}
 			}
 			else {
-				p->Release();
+				PrintConsole("MMEffectHack_D3DXCreateEffectFromFile[A/W]:RT buffer effect already loaded.");
 			}
 		}
 
@@ -244,8 +256,6 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 
 CHookID3DXEffectMMEMirrorRT::CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect)
 {
-	this->pSurfRT = NULL;
-
 #ifdef OVR_ENABLE
 	this->hEyeRT[0] = NULL;
 	this->hEyeRT[1] = NULL;
@@ -276,6 +286,49 @@ CHookID3DXEffectMMEMirrorRT::CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect)
 		else {
 			this->hEyeRT[1] = NULL;
 		}
+
+		handle = this->pOriginal->GetParameterBySemantic(NULL, MMEHACK_EFFECT_SEMANTIC_HMDTYPE);
+		if( handle ) {
+			int n;
+			if(SUCCEEDED(this->pOriginal->GetInt(handle, &n))) {
+				TargetHMDType = (ovrHmdType)n;
+			}
+			else {
+				TargetHMDType = ovrHmd_None;
+			}
+		}
+		else {
+			TargetHMDType = ovrHmd_None;
+		}
+
+		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_PROJ_ZNEAR);
+		if( handle ) {
+			this->hProjZNear = handle;
+			if(FAILED(this->pOriginal->GetFloat(handle, &this->fProjZNear))) {
+				this->fProjZNear = (float)MMEHACK_PROJ_ZNEAR_DEFAULT;
+			}
+		}
+		else {
+			this->hProjZNear = NULL;
+			this->fProjZNear = (float)MMEHACK_PROJ_ZNEAR_DEFAULT;
+		}
+
+		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_PROJ_ZFAR);
+		if( handle ) {
+			this->hProjZFar = handle;
+			if(FAILED(this->pOriginal->GetFloat(handle, &this->fProjZFar))) {
+				this->fProjZFar = (float)MMEHACK_PROJ_ZFAR_DEFAULT;
+			}
+		}
+		else {
+			this->hProjZFar = NULL;
+			this->fProjZFar = (float)MMEHACK_PROJ_ZFAR_DEFAULT;
+		}
+
+		if( g_pRift ) {
+			g_pRift->GetProjectionMatrix(&g_matOVREyeProj[0], this->fProjZNear, this->fProjZFar);
+		}
+
 #endif
 
 	}
@@ -284,10 +337,6 @@ CHookID3DXEffectMMEMirrorRT::CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect)
 CHookID3DXEffectMMEMirrorRT::~CHookID3DXEffectMMEMirrorRT()
 {
 	/* pOriginal->Release() ‚Í CHookID3DXEffect::~CHookID3DXEffect ‚ÅŽÀŽ{ */
-	if( this->pSurfRT ) {
-		this->pSurfRT->Release();
-		this->pSurfRT = NULL;
-	}
 #ifdef OVR_ENABLE
 	if( this->pSurfRTEye[0] ) {
 		this->pSurfRTEye[0]->Release();
@@ -311,6 +360,11 @@ HRESULT	STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::QueryInterface(REFIID rii
 	return this->pOriginal->QueryInterface(riid, ppvObject);
 }
 
+HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::Begin(UINT *pPasses, DWORD Flags)
+{
+	return this->pOriginal->Begin(pPasses, Flags);
+}
+
 HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::SetTexture(D3DXHANDLE hParameter, LPDIRECT3DBASETEXTURE9 pTexture)
 {
 #ifdef OVR_ENABLE
@@ -332,6 +386,15 @@ HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::SetTexture(D3DXHANDLE hPa
 				hr = pTextureRT->GetSurfaceLevel(0, &(this->pSurfRTEye[eye]));
 				if( SUCCEEDED(hr) && this->pSurfRTEye[eye] ) {
 					hr = this->pSurfRTEye[eye]->GetDesc(&(this->RTEyeTexDesc[eye]));
+#ifdef DEBUG_CONSOLE
+					PrintConsole("CHookID3DXEffectMMEMirrorRT::SetTexture()");
+					PrintConsole(" pSurfRTEye:", &eye);
+					int n;
+					n = this->RTEyeTexDesc[eye].Width;
+					PrintConsole("  RTSize.Width:", &n);
+					n = this->RTEyeTexDesc[eye].Height;
+					PrintConsole("  RTSize.Height:", &n);
+#endif
 				}
 				pTextureRT->Release();
 			}
@@ -368,7 +431,7 @@ CHookID3DXEffectOVRRenderer::CHookID3DXEffectOVRRenderer(::ID3DXEffect *pEffect)
 			this->hProjMatrix = NULL;
 		}
 
-		handle = this->GetParameterByName(NULL, MMEHACK_EFFECT_VIEWTYPE);
+		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_VIEWTYPE);
 		if( handle ) {
 			this->hViewType = handle;
 			if(FAILED(this->pOriginal->GetInt(handle, &this->nViewType))) {
@@ -379,6 +442,7 @@ CHookID3DXEffectOVRRenderer::CHookID3DXEffectOVRRenderer(::ID3DXEffect *pEffect)
 			this->hViewType = NULL;
 			this->nViewType = MMEHACK_VIEWTYPE_DEFAULT;
 		}
+
 	}
 }
 
@@ -442,7 +506,7 @@ HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::Begin(UINT *pPasses, DWOR
 		}
 	}
 	if( !this->hViewType
-		|| (this->hViewType &&MMEHACK_VIEWTYPE_DEFAULT != this->nViewType) ) {
+		|| (this->hViewType && MMEHACK_VIEWTYPE_DEFAULT != this->nViewType) ) {
 
 		pmatProj = pMMEHookDirect3DDevice9->GetProjectionMatrix((ovrEyeType)this->nOVREye);
 		this->SetProjMatrix(pmatProj);
