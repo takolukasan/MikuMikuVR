@@ -2,27 +2,15 @@
 #include "stdafx.h"
 
 
-
-// #define TIMELIMIT_ENABLE
-
-#ifdef TIMELIMIT_ENABLE
-SYSTEMTIME systimeDllLoad;
-
-#define TIMELIMIT_YEAR	(2015)
-#define TIMELIMIT_MONTH	(4)
-#define TIMELIMIT_DAY	(30)
-
-#endif
-
-
 #define MMD_PROCESS_NAME	TEXT("MikuMikuDance.exe")
-#define FILENAME_LENGTH		(1024)
 
 
 HMODULE g_hModMyLibrary;
 
 BOOL g_bMMDHacked;
 BOOL g_bMMEHacked;
+
+TCHAR g_tcApplicationDirectory[FILENAME_LENGTH];
 
 BOOL CheckTargetProcess()
 {
@@ -41,6 +29,8 @@ BOOL CheckTargetProcess()
 			nCompResult = CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, tTargetProcess, (int)len1, tcMyProcessParentName + (len2 - len1), (int)len1);
 			if( CSTR_EQUAL == nCompResult ) {
 				/* Found target */
+
+				StringCchCopyN(g_tcApplicationDirectory, FILENAME_LENGTH, tcMyProcessParentName, len2 - len1);
 				return TRUE;
 			}
 		}
@@ -104,25 +94,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 		case DLL_PROCESS_ATTACH:
-				/* ここでFALSEを返してDLL読み込み失敗とさせると、 MainProc() のコードが消えてお亡くなりになるので取り合えずTRUEを返すこと。 */
-
-#ifdef TIMELIMIT_ENABLE
-			/* DLL ロード条件を判定 */
-			// GetLocaleInfo
-			// GetSystemDefaultLCID
-			// GetUserDefaultLCID
-			GetLocalTime(&systimeDllLoad);
-			if(   systimeDllLoad.wYear <  TIMELIMIT_YEAR
-			 || ( systimeDllLoad.wYear == TIMELIMIT_YEAR && systimeDllLoad.wMonth <  TIMELIMIT_MONTH )
-			 || ( systimeDllLoad.wYear == TIMELIMIT_YEAR && systimeDllLoad.wMonth == TIMELIMIT_MONTH && systimeDllLoad.wDay <= TIMELIMIT_DAY )
-			) {
-				/* 起動OK */
-			}
-			else {
-				return FALSE;
-			}
-
-#endif
+			/* ここでFALSEを返してDLL読み込み失敗とさせると、 MainProc() のコードが消えてお亡くなりになるので取り合えずTRUEを返すこと。 */
 
 			if( CheckTargetProcess() ) {
 				g_hModMyLibrary = hModule;

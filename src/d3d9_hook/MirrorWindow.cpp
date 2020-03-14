@@ -1,20 +1,13 @@
 #include "stdafx.h"
 
 
-#define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.20")
+#define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.30")
 #define CLASS_NAME			TEXT("MMDOVRHookClass")
-#define WINDOW_TITLE_OVR	TEXT("MikuMikuVR Mirror")
-#define CLASS_NAME_OVR		TEXT("MMDOVRMirrorClass")
 
 
 HWND g_hWnd;
 HMENU g_hMenu;
 
-
-#ifdef OVR_ENABLE
-HWND g_hWndDistortion;
-BOOL bOVREyeTexMirror;
-#endif
 
 /* MMDウィンドウ管理 */
 HWND g_hWndMMD;
@@ -28,6 +21,7 @@ double g_dMovingPosY = 0.0;
 double g_dMovingPosZ = 0.0;
 double g_dRotationY = 0.0;
 double g_dFovZoom = 1.0;
+
 
 
 static BOOL bCloseEnable = FALSE;
@@ -77,55 +71,8 @@ HRESULT InitWindow( HINSTANCE hInstance, int nCmdShow )
     if( !g_hWnd )
         return E_FAIL;
 
-#ifdef OVR_ENABLE
-
-    wcex.lpfnWndProc = WndProcDistortion;
-	wcex.lpszMenuName = NULL;
-    wcex.lpszClassName = CLASS_NAME_OVR;
-    if( !RegisterClassEx( &wcex ) )
-        return E_FAIL;
-
-	rc.right = WINDOW_WIDTH;
-	rc.bottom = WINDOW_HEIGHT;
-
-
-	// Create window
-    AdjustWindowRect( &rc, WS_OVERLAPPEDWINDOW & (~WS_OVERLAPPED), TRUE );
-    g_hWndDistortion = CreateWindow( wcex.lpszClassName, WINDOW_TITLE_OVR, WS_OVERLAPPEDWINDOW & (~WS_MAXIMIZEBOX),
-                           CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance,
-                           NULL );
-    if( !g_hWndDistortion )
-        return E_FAIL;
-
-#endif
-
     return S_OK;
 }
-
-#ifdef OVR_ENABLE
-HRESULT SetOVRWindowTitleSuffix(TCHAR *pSuffix)
-{
-	TCHAR tWindowText[BUFFER_SIZE * 2];
-	TCHAR *tStr = NULL;
-	size_t len = 0;
-
-	StringCchCopy(tWindowText, BUFFER_SIZE, WINDOW_TITLE_OVR);
-
-	StringCchLength(tStr, BUFFER_SIZE, &len);
-	StringCchCatN(tWindowText, BUFFER_SIZE, tStr, len);
-
-	if( pSuffix ) {
-		StringCchLength(L" ", BUFFER_SIZE, &len);
-		StringCchCatN(tWindowText, BUFFER_SIZE, L" ", len);
-		StringCchLength(pSuffix, BUFFER_SIZE, &len);
-		StringCchCatN(tWindowText, BUFFER_SIZE, pSuffix, len);
-	}
-
-	SetWindowText(g_hWndDistortion, tWindowText);
-
-	return S_OK;
-}
-#endif
 
 HRESULT SetupWindowState()
 {
@@ -164,9 +111,6 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			/* 閉じるを無視する */
 			/* MMD本体が終了する時にのみ許可する */
 			if( bCloseEnable == TRUE ) {
-#ifdef OVR_ENABLE
-				DestroyWindow(g_hWndDistortion);
-#endif
 				DestroyWindow(hWnd);
 			}
 			return 0;
@@ -266,12 +210,6 @@ static void MenuSelectionProc( UINT uMenuItemId )
 
 	switch(uMenuItemId) {
 #ifdef OVR_ENABLE
-		case ID_MENU_OVR_EYETEXTURE:
-			bItemChecking = !bItemChecked;
-			
-			bOVREyeTexMirror = bItemChecking;
-
-			break;
 		case ID_MENU_OCULUS_VIEWINIT:
 			if( g_pRift )
 				g_pRift->ResetTracking();
@@ -291,7 +229,6 @@ static void MenuSelectionProc( UINT uMenuItemId )
 			break;
 
 		case ID_MENU_D_TOP:
-
 			bItemChecking = !bItemChecked;
 
 			if( bItemChecking ) {

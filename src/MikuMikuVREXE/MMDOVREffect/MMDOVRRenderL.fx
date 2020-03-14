@@ -26,6 +26,9 @@ static float3 MMDMV_up = float3(0,1,0);
 float4x4 MMDOVR_ViewMatrix : MMDOVR_VIEW;		// Oculusの視点移動/回転行列。オリジナルのビューに掛ける
 float4x4 MMDOVR_ProjMatrix : MMDOVR_PROJECTION;	// Oculusの射影行列。オリジナルの行列と差し替える。
 
+const int MMDOVR_ViewType = MMEHACK_VIEWTYPE_VIEWPROJ;
+const int MMDOVR_ViewEye = MMEHACK_VIEWEYE_LEFT;
+
 /* ↑↑将来の拡張のためにパラメータ名を変更しないことをオススメします↑↑ */
 
 
@@ -48,11 +51,12 @@ inline float3 GetFocusPosition()
 	return Focus;
 }
 
-// ↓ここで行列をいじりまくる 最終的にはMMDMirrorView内から操作予定
-// たぶんビュー行列はシェーダで毎回計算させるより一回計算してセットしたほうが速い
+
+// この行列はMMD(MME)から取得する
+// ただし、ワールド・ビュー・プロジェクションはばらばらに取得する
 
 // 座法変換行列
-// float4x4 WorldViewProjMatrix      : WORLDVIEWPROJECTION;
+// float4x4 WorldViewProjMatrix   : WORLDVIEWPROJECTION;
 float4x4 WorldMatrix              : WORLD;
 float4x4 ViewMatrixOrg            : VIEW;
 float4x4 ProjectionMatrix         : PROJECTION;

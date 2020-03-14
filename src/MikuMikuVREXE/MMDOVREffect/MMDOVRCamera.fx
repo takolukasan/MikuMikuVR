@@ -12,7 +12,7 @@
 
 // パラメータ宣言
 
-// ↓↓MMDMirrorView からも触るからパラメータ名、セマンティックス名編集禁止！↓↓
+// ↓↓MikuMikuVR からも触るからパラメータ名、セマンティックス名編集禁止！↓↓
 
 texture MMEHACK_EFFECT_EYETEXTURENAMEL : OFFSCREENRENDERTARGET <
 	// サイズ変更禁止。
@@ -38,8 +38,7 @@ texture MMEHACK_EFFECT_EYETEXTURENAMER : OFFSCREENRENDERTARGET <
 	string DefaultEffect = "self = hide; "OBJECT_CAMERA" = hide; "OBJECT_FOCUS" = hide; * = "MMEHACK_EFFECT_OVRRENDERR";";
 >;
 
-// ↑↑MMDMirrorView からも触るからパラメータ名、セマンティックス名編集禁止！↑↑
-
+// ↑↑MikuMikuVR からも触るからパラメータ名、セマンティックス名編集禁止！↑↑
 
 // 以降は、カメラオブジェクトの描画に意味使われるだけ。
 // MMD標準シェーダに戻そうが、逆に何も表示されないようにしようがお好みで。

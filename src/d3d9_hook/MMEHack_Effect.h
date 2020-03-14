@@ -88,7 +88,6 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 class CHookID3DXEffectMMEMirrorRT : public CHookID3DXEffect
 {
 private:
-	IDirect3DSurface9 *pSurfRT;
 
 #ifdef OVR_ENABLE
 	D3DXHANDLE hEyeRT[OVR_EYE_NUM];
@@ -100,8 +99,6 @@ public:
 	CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect);
 	~CHookID3DXEffectMMEMirrorRT();
 
-	IDirect3DSurface9 * GetRTSurface() { return this->pSurfRT; }
-
 #ifdef OVR_ENABLE
 	IDirect3DSurface9 * GetEyeSurface(int eye) { return this->pSurfRTEye[eye]; }
 	D3DSURFACE_DESC * GetRTEyeTexDesc(int eye) { return &(this->RTEyeTexDesc[eye]); }
@@ -111,6 +108,7 @@ public:
     virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
 
 	/*** ID3DXEffect methods ***/
+	virtual HRESULT STDMETHODCALLTYPE Begin(UINT *pPasses, DWORD Flags);
     virtual HRESULT STDMETHODCALLTYPE SetTexture(D3DXHANDLE hParameter, LPDIRECT3DBASETEXTURE9 pTexture);
 };
 
