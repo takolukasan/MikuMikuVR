@@ -22,19 +22,21 @@ typedef struct IDirect3DVertexBuffer9Vtbl_Hook {
 } IDirect3DVertexBuffer9Vtbl_Hook;
 
 
-typedef struct IDirect3DIndexBuffer9Vtbl_Hook {
-	IDirect3DIndexBuffer9Vtbl lpVtbl[2];
-	IDirect3DIndexBuffer9Vtbl *lpOrgVtbl;
-} IDirect3DIndexBuffer9Vtbl_Hook;
-
-
 typedef struct IDirect3DTexture9Vtbl_Hook {
 	IDirect3DTexture9Vtbl lpVtbl[2];
 	IDirect3DTexture9Vtbl *lpOrgVtbl;
 } IDirect3DTexture9Vtbl_Hook;
 
 
-typedef ULONG (STDMETHODCALLTYPE * tIUnknown_Release)();
+
+#define DEFINE_GETOFFSET(_interface, _method)							\
+	DWORD Hook##_interface##_GetOffset_##_method(_interface *p)			\
+{																		\
+	_interface##Vtbl *pVtbl = p->lpVtbl;								\
+	return (DWORD)((uintptr_t)(&pVtbl->_method) - (uintptr_t)pVtbl);	\
+}
+
+
 static ULONG STDMETHODCALLTYPE Hook_IDirect3DVertexBuffer9_Release(IDirect3DVertexBuffer9 *pthis)
 {
 	IDirect3DVertexBuffer9Vtbl_Hook *pHook = (IDirect3DVertexBuffer9Vtbl_Hook *)(pthis->lpVtbl);
@@ -50,7 +52,6 @@ static ULONG STDMETHODCALLTYPE Hook_IDirect3DVertexBuffer9_Release(IDirect3DVert
 	}
     return ulRefCnt;
 }
-
 
 uintptr_t HookIDirect3DVertexBuffer9_Hookvtable(IDirect3DVertexBuffer9 *p, UINT Length)
 {
@@ -98,83 +99,7 @@ IDirect3DVertexBuffer9_PrivateData * HookIDirect3DVertexBuffer9_GetPrivateData(I
 	return &(pHook->PrivateData);
 }
 
-DWORD HookIDirect3DVertexBuffer9_GetOffset_Lock(IDirect3DVertexBuffer9 *p)
-{
-	IDirect3DVertexBuffer9Vtbl *pVtbl = p->lpVtbl;
-	return (DWORD)((uintptr_t)(&pVtbl->Lock) - (uintptr_t)pVtbl);
-}
 
-DWORD HookIDirect3DVertexBuffer9_GetOffset_Unlock(IDirect3DVertexBuffer9 *p)
-{
-	IDirect3DVertexBuffer9Vtbl *pVtbl = p->lpVtbl;
-	return (DWORD)((uintptr_t)(&pVtbl->Unlock) - (uintptr_t)pVtbl);
-}
+DEFINE_GETOFFSET(IDirect3DVertexBuffer9, Lock);
+DEFINE_GETOFFSET(IDirect3DVertexBuffer9, Unlock);
 
-
-#if 0
-uintptr_t HookIDirect3DIndexBuffer9_Vtbl(IDirect3DIndexBuffer9 *p)
-{
-	IDirect3DIndexBuffer9Vtbl_Hook *pRet = (IDirect3DIndexBuffer9Vtbl_Hook *)malloc(sizeof(IDirect3DIndexBuffer9Vtbl_Hook));
-
-	memset(pRet, 0, sizeof(IDirect3DIndexBuffer9Vtbl_Hook));
-
-	(pRet->lpVtbl[0]) = *(p->lpVtbl);
-	pRet->lpOrgVtbl = (p->lpVtbl);
-
-	p->lpVtbl = (IDirect3DIndexBuffer9Vtbl *)pRet;
-
-	return (uintptr_t)pRet;
-}
-
-uintptr_t HookIDirect3DIndexBuffer9_Method(IDirect3DIndexBuffer9 *p, DWORD dwOfs, uintptr_t pFunc)
-{
-	IDirect3DIndexBuffer9Vtbl_Hook *pHook = (IDirect3DIndexBuffer9Vtbl_Hook *)(p->lpVtbl);
-	int nIndex = dwOfs / sizeof(uintptr_t);
-
-	*((uintptr_t *)(&pHook->lpVtbl[1]) + nIndex) = *((uintptr_t *)(&pHook->lpVtbl[0]) + nIndex);
-	*((uintptr_t *)(&pHook->lpVtbl[0]) + nIndex) = pFunc;
-
-	return *((uintptr_t *)(&pHook->lpVtbl[1]) + nIndex);
-}
-
-uintptr_t IDirect3DIndexBuffer9_GetMethod(IDirect3DIndexBuffer9 *p, DWORD dwOfs)
-{
-	IDirect3DIndexBuffer9Vtbl_Hook *pHook = (IDirect3DIndexBuffer9Vtbl_Hook *)(p->lpVtbl);
-	int nIndex = dwOfs / sizeof(uintptr_t);
-
-	return *((uintptr_t *)(&pHook->lpVtbl[1]) + nIndex);
-}
-
-uintptr_t HookIDirect3DTexture9_Vtbl(IDirect3DTexture9 *p)
-{
-	IDirect3DTexture9Vtbl_Hook *pRet = (IDirect3DTexture9Vtbl_Hook *)malloc(sizeof(IDirect3DTexture9Vtbl_Hook));
-
-	memset(pRet, 0, sizeof(IDirect3DTexture9Vtbl_Hook));
-
-	(pRet->lpVtbl[0]) = *(p->lpVtbl);
-	pRet->lpOrgVtbl = (p->lpVtbl);
-
-	p->lpVtbl = (IDirect3DTexture9Vtbl *)pRet;
-
-	return (uintptr_t)pRet;
-}
-
-uintptr_t HookIDirect3DTexture9_Method(IDirect3DTexture9 *p, DWORD dwOfs, uintptr_t pFunc)
-{
-	IDirect3DTexture9Vtbl_Hook *pHook = (IDirect3DTexture9Vtbl_Hook *)(p->lpVtbl);
-	int nIndex = dwOfs / sizeof(uintptr_t);
-
-	*((uintptr_t *)(&pHook->lpVtbl[1]) + nIndex) = *((uintptr_t *)(&pHook->lpVtbl[0]) + nIndex);
-	*((uintptr_t *)(&pHook->lpVtbl[0]) + nIndex) = pFunc;
-
-	return *((uintptr_t *)(&pHook->lpVtbl[1]) + nIndex);
-}
-
-uintptr_t IDirect3DTexture9_GetMethod(IDirect3DTexture9 *p, DWORD dwOfs)
-{
-	IDirect3DTexture9Vtbl_Hook *pHook = (IDirect3DTexture9Vtbl_Hook *)(p->lpVtbl);
-	int nIndex = dwOfs / sizeof(uintptr_t);
-
-	return *((uintptr_t *)(&pHook->lpVtbl[1]) + nIndex);
-}
-#endif

@@ -145,7 +145,12 @@ public:
 class CHookIDirect3DDevice9MME : public CHookIDirect3DDevice9
 {
 private:
-	BOOL bShadowTarget;
+	/* Direct3D9 インターフェース */
+	IDirect3DSwapChain9 *pSwapChainMME;
+
+	D3DXMATRIX matEyeView[OVR_EYE_NUM];
+	D3DXMATRIX matProjection[OVR_EYE_NUM];
+
 
 public:
 	CHookIDirect3DDevice9MME(::IDirect3DDevice9 *pDevice);
@@ -155,14 +160,16 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
 
 	/*** IDirect3DDevice9 methods ***/
-	virtual HRESULT STDMETHODCALLTYPE CreateTexture(UINT Width,UINT Height,UINT Levels,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DTexture9** ppTexture,HANDLE* pSharedHandle);
 	virtual HRESULT STDMETHODCALLTYPE CreateVertexBuffer(UINT Length,DWORD Usage,DWORD FVF,D3DPOOL Pool,IDirect3DVertexBuffer9** ppVertexBuffer,HANDLE* pSharedHandle);
-	virtual HRESULT STDMETHODCALLTYPE CreateIndexBuffer(UINT Length,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DIndexBuffer9** ppIndexBuffer,HANDLE* pSharedHandle);
-	virtual HRESULT STDMETHODCALLTYPE SetRenderTarget(DWORD RenderTargetIndex,IDirect3DSurface9* pRenderTarget);
     virtual HRESULT STDMETHODCALLTYPE BeginScene();
     virtual HRESULT STDMETHODCALLTYPE Present(CONST RECT* pSourceRect,CONST RECT* pDestRect,HWND hDestWindowOverride,CONST RGNDATA* pDirtyRegion);
-	virtual HRESULT STDMETHODCALLTYPE DrawPrimitive(D3DPRIMITIVETYPE PrimitiveType,UINT StartVertex,UINT PrimitiveCount);
-	virtual HRESULT STDMETHODCALLTYPE DrawIndexedPrimitive(D3DPRIMITIVETYPE Type,INT BaseVertexIndex,UINT MinIndex,UINT NumVertices,UINT StartIndex,UINT PrimitiveCount);
+
+	const D3DXMATRIX * GetEyeViewMatrix(ovrEyeType eye) {
+		return &this->matEyeView[eye];
+	}
+	const D3DXMATRIX * GetProjectionMatrix(ovrEyeType eye) {
+		return &this->matProjection[eye];
+	}
 
 };
 

@@ -3,14 +3,14 @@
 
 
 
-#define TIMELIMIT_ENABLE
+// #define TIMELIMIT_ENABLE
 
 #ifdef TIMELIMIT_ENABLE
 SYSTEMTIME systimeDllLoad;
 
 #define TIMELIMIT_YEAR	(2015)
-#define TIMELIMIT_MONTH	(3)
-#define TIMELIMIT_DAY	(31)
+#define TIMELIMIT_MONTH	(4)
+#define TIMELIMIT_DAY	(30)
 
 #endif
 
@@ -51,18 +51,47 @@ BOOL CheckTargetProcess()
 
 BOOL HookD3DFunctions()
 {
-	if( !HookFunctionOfModule(GetModuleHandle(NULL), "Direct3DCreate9", Hook_Direct3DCreate9, (void **)&g_orgDirect3DCreate9) )
+	HMODULE hModMyProcess = GetModuleHandle(NULL);
+
+	if( !HookFunctionOfModule(hModMyProcess, "Direct3DCreate9", Hook_Direct3DCreate9, (void **)&g_orgDirect3DCreate9) )
 		return FALSE;
-	if( !HookFunctionOfModule(GetModuleHandle(NULL), "D3DXCreateEffectFromResourceA", Hook_D3DXCreateEffectFromResourceA, (void **)&g_orgD3DXCreateEffectFromResourceA) )
+	if( !HookFunctionOfModule(hModMyProcess, "D3DXCreateEffectFromResourceA", Hook_D3DXCreateEffectFromResourceA, (void **)&g_orgD3DXCreateEffectFromResourceA) )
 		return FALSE;
-	if( !HookFunctionOfModule(GetModuleHandle(NULL), "D3DXCreateTexture", Hook_D3DXCreateTexture, (void **)&g_orgD3DXCreateTexture) )
+#ifdef D3D9EX_ENABLE
+	if( !HookFunctionOfModule(hModMyProcess, "D3DXCreateTexture", Hook_D3DXCreateTexture, (void **)&g_orgD3DXCreateTexture) )
 		return FALSE;
-	if( !HookFunctionOfModule(GetModuleHandle(NULL), "D3DXCreateTextureFromFileExA", Hook_D3DXCreateTextureFromFileExA, (void **)&g_orgD3DXCreateTextureFromFileExA) )
+	if( !HookFunctionOfModule(hModMyProcess, "D3DXCreateTextureFromFileExA", Hook_D3DXCreateTextureFromFileExA, (void **)&g_orgD3DXCreateTextureFromFileExA) )
 		return FALSE;
-	if( !HookFunctionOfModule(GetModuleHandle(NULL), "D3DXCreateTextureFromFileExW", Hook_D3DXCreateTextureFromFileExW, (void **)&g_orgD3DXCreateTextureFromFileExW) )
+	if( !HookFunctionOfModule(hModMyProcess, "D3DXCreateTextureFromFileExW", Hook_D3DXCreateTextureFromFileExW, (void **)&g_orgD3DXCreateTextureFromFileExW) )
 		return FALSE;
-	if( !HookFunctionOfModule(GetModuleHandle(NULL), "D3DXCreateTextureFromFileInMemoryEx", Hook_D3DXCreateTextureFromFileInMemoryEx, (void **)&g_orgD3DXCreateTextureFromFileInMemoryEx) )
+	if( !HookFunctionOfModule(hModMyProcess, "D3DXCreateTextureFromFileInMemoryEx", Hook_D3DXCreateTextureFromFileInMemoryEx, (void **)&g_orgD3DXCreateTextureFromFileInMemoryEx) )
 		return FALSE;
+	if( !HookFunctionOfModule(hModMyProcess, "D3DXLoadMeshFromXInMemory", Hook_D3DXLoadMeshFromXInMemory, (void **)&g_orgD3DXLoadMeshFromXInMemory))
+		return FALSE;
+	if( !HookFunctionOfModule(hModMyProcess, "D3DXLoadMeshFromXW", Hook_D3DXLoadMeshFromXW, (void **)&g_orgD3DXLoadMeshFromXW))
+		return FALSE;
+#endif
+
+#ifdef D3D9EX_ENABLE
+	TCHAR tcD3D9DllPath[FILENAME_LENGTH + 1] = TEXT("");
+	HMODULE hModD3D9Dll;
+
+	GetSystemDirectory(tcD3D9DllPath, FILENAME_LENGTH);
+	StringCchCat(tcD3D9DllPath, FILENAME_LENGTH, TEXT("\\"));
+	StringCchCat(tcD3D9DllPath, FILENAME_LENGTH, D3D9_DLL_NAME);
+
+	hModD3D9Dll = GetModuleHandle(tcD3D9DllPath);
+
+	DynDirect3DCreate9Ex = NULL;
+	if( hModD3D9Dll ) {
+		DynDirect3DCreate9Ex = (tDirect3DCreate9Ex)GetProcAddress(hModD3D9Dll, "Direct3DCreate9Ex");
+	}
+
+#if X64
+	if( !DynDirect3DCreate9Ex )
+		return FALSE;
+#endif
+#endif
 
 	return TRUE;
 }

@@ -16,9 +16,6 @@ HANDLE g_hSemaphoreMMDRenderSync;
 
 
 
-VIEW_POINTS g_ViewPoint = VIEW_POINT_ORIGINAL;
-
-
 /* Direct3D9 実装インターフェースポインタ */
 CHookIDirect3D9MMD *pHookDirect3D9;
 CHookIDirect3DDevice9MMD *pHookDirect3DDevice9;
@@ -30,17 +27,12 @@ IDirect3DSurface9 *g_pPrimaryDepthStencil;
 IDirect3DSwapChain9 *g_pMirSwapChain;
 IDirect3DSurface9 *g_pMirBackBuffer;
 IDirect3DSurface9 *g_pMirDepthStencil;
+D3DSURFACE_DESC g_MirBackBufferDesc;
 
 #ifdef OVR_ENABLE
 IDirect3DTexture9 *g_pEyeTex[OVR_EYE_NUM];
 IDirect3DSurface9 *g_pEyeSurf[OVR_EYE_NUM];
-IDirect3DSurface9 *g_pEyeDepth[OVR_EYE_NUM];
 #endif
-
-D3DVIEWPORT9 g_vpMirror;
-
-
-D3DXMATRIX g_matRotateViewPoints[VIEW_POINT_SELECT_MAX];	/* 使用するインデックスはg_ViewPoint に同期 */
 
 
 /* Direct3D共有リソース用ハンドル */
@@ -50,53 +42,9 @@ HANDLE g_hEyeTexShareHandle[OVR_EYE_NUM];
 #endif
 #endif
 
-#define RT_Swap() if( g_pMirBackBuffer && g_pMirDepthStencil) {		\
-	D3DVIEWPORT9 vp;												\
-	IDirect3DSurface9 *pSurf,*pDepth;								\
-	this->pOriginal->GetRenderTarget(0, &pSurf);					\
-	this->pOriginal->GetViewport(&vp);								\
-	this->pOriginal->GetDepthStencilSurface(&pDepth);				\
-	this->pOriginal->SetRenderTarget(0, g_pMirBackBuffer);			\
-	this->pOriginal->SetViewport(&vp);								\
-	this->pOriginal->SetDepthStencilSurface(g_pMirDepthStencil);	
-
-#define RT_Restore()												\
-	this->pOriginal->SetRenderTarget(0, pSurf);						\
-	this->pOriginal->SetViewport(&vp);								\
-	this->pOriginal->SetDepthStencilSurface(pDepth);				\
-	pSurf->Release();												\
-	pDepth->Release();												\
-}
-
 
 static void CleanupD3DHookResources();
 
-
-#if 0
-D3DXMATRIX * GetViewPointMatrix(D3DXMATRIX *matOut, const VIEW_POINTS vPoint, const D3DXMATRIX *matOld)
-{
-	switch(vPoint) {
-		case VIEW_POINT_LEFT:
-		case VIEW_POINT_RIGHT:
-		case VIEW_POINT_TOP:
-		case VIEW_POINT_BOTTOM:
-		case VIEW_POINT_OPPOSITE:
-		case VIEW_POINT_ORIGINAL:
-			D3DXMatrixMultiply(matOut, matOld, &g_matRotateViewPoints[vPoint]);
-			break;
-
-		case VIEW_POINT_FIX:
-			/* 行列変更しない */
-			break;
-
-		default:
-			/* バカよけ */
-		break;
-	}
-
-	return matOut;
-}
-#endif
 
 
 DWORD WINAPI MainProc(LPVOID lpParameter)
@@ -143,7 +91,7 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 	ReleaseMutex(g_hMutexD3DCreateBlock);
 
 #ifdef OVR_ENABLE
-	if( SUCCEEDED(OVRDistortion_D3D11Init()) ) {
+	if( bOVRInitialized && SUCCEEDED(OVRDistortion_D3D11Init()) ) {
 		bOVRInitialized = TRUE;
 	}
 	else {
@@ -154,13 +102,11 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 	// 逆にここはMMD側のDirect3D初期化が終わるまでブロック
 	WaitForSingleObject(g_hSemaphoreMMDInitBlock, INFINITE);
 #ifdef OVR_ENABLE
-	if( bOVRInitialized ) {
-		if( SUCCEEDED(OVRDistortion_Create()) ) {
-			bOVRInitialized = TRUE;
-		}
-		else {
-			bOVRInitialized = FALSE;
-		}
+	if( bOVRInitialized && SUCCEEDED(OVRDistortion_Create()) ) {
+		bOVRInitialized = TRUE;
+	}
+	else {
+		bOVRInitialized = FALSE;
 	}
 #endif
 
@@ -184,19 +130,42 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
         else
         {
 #ifdef OVR_ENABLE
-			ReleaseSemaphore(g_hSemaphoreMMDRenderSync, 1, NULL);
-			if( bOVRInitialized && g_pMMEHookMirrorRT && WAIT_OBJECT_0 == WaitForSingleObject(g_hSemaphoreOVRRenderSync, 30) ) {	/* MMD側描画完了 */
-				OVRDistortion_Render();
+			if( bOVRInitialized && g_pMMEHookMirrorRT ) {
+				static BOOL bMMDRenderTrigger = TRUE;
+
+				if( bMMDRenderTrigger ) {
+					bMMDRenderTrigger = FALSE;
+					OVRDistortion_Render1();
+				}
+
+				if( WAIT_OBJECT_0 == WaitForSingleObject(g_hSemaphoreOVRRenderSync, 0) ) {	/* MMD側描画完了 */
+					bMMDRenderTrigger = TRUE;
+
+					OVRDistortion_Render2();
+
+					/* リソース(テクスチャ)使用終了 & VSync完 */
+					ReleaseSemaphore(g_hSemaphoreMMDRenderSync, 1, NULL);
+				}
+				else { /* FPS表示はヒマな時にやろうよ？ */
+					if( g_nOVRFPS >= 0 ) {
+						TCHAR tcFPSBuffer[MAX_PATH];
+						swprintf_s(tcFPSBuffer, MAX_PATH, L"FPS: %d\n", g_nOVRFPS);
+						SetOVRWindowTitleSuffix(tcFPSBuffer);
+						g_nOVRFPS = -1;
+					}
+				}
 			}
-			static int nFPSold = 0;
-			if( nFPSold != g_nOVRFPS ) {
-				TCHAR tcFPSBuffer[MAX_PATH];
-				swprintf_s(tcFPSBuffer, MAX_PATH, L"FPS: %d\n", g_nOVRFPS);
-				SetOVRWindowTitleSuffix(tcFPSBuffer);
-				nFPSold = g_nOVRFPS;
+			else {
+				if( bOVRInitialized ) {
+					OVRDistortion_Render1();
+					OVRDistortion_Render2();
+				}
+				/* 初期化未完了時は強制許可しないとMMDが止まる */
+				ReleaseSemaphore(g_hSemaphoreMMDRenderSync, 1, NULL);
+				Sleep(1);
 			}
 #else
-			Sleep(0);
+			Sleep(1);
 #endif
         }
     }
@@ -219,19 +188,25 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 
 	Sleep(100);
 
-	CloseHandle(g_hSemaphoreMMDShutdownBlock);
-
 	/* 運がよければ開放される・・・ */
 	if( pHookDirect3D9 && pHookDirect3D9->GetRefCnt() == 1 ) {
 		delete pHookDirect3D9;
 		pHookDirect3D9 = NULL;
 	}
 
+	CloseHandle(g_hSemaphoreMMDShutdownBlock);
+
 	return 0;
 }
 
 static void CleanupD3DHookResources()
 {
+	int i;
+	for(i = 0; i < OVR_EYE_NUM; i++) {
+		RELEASE(g_pEyeTex[i]);
+		RELEASE(g_pEyeSurf[i]);
+	}
+
 	RELEASE(g_pPrimaryBackBuffer);
 	RELEASE(g_pPrimaryDepthStencil);
 	RELEASE(g_pMirSwapChain);
@@ -294,9 +269,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3D9MMD::CreateDevice(UINT Adapter,D3DDEVTY
 	// 付けておいたほうが安全？
 	BehaviorFlags |= D3DCREATE_MULTITHREADED;
 
-#ifdef _DEBUG
-	// Adapter = 1;
-#endif
 	hr = this->pOriginal->CreateDevice(Adapter, DeviceType, hFocusWindow, BehaviorFlags, pPresentationParameters, &p);
 
 	if( SUCCEEDED(hr) ) {
@@ -342,63 +314,28 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3D9MMD::CreateDevice(UINT Adapter,D3DDEVTY
 #ifdef MIRROR_RENDER
 		if( SUCCEEDED(p->CreateAdditionalSwapChain(&pr, &g_pMirSwapChain) ) ) {
 			hr1 = g_pMirSwapChain->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &g_pMirBackBuffer);
+			g_pMirBackBuffer->GetDesc(&g_MirBackBufferDesc);
 
 			hr1 = p->CreateDepthStencilSurface(
 				SurfDesc[1].Width, SurfDesc[1].Height, SurfDesc[1].Format, SurfDesc[1].MultiSampleType, SurfDesc[1].MultiSampleQuality,
 				FALSE, &g_pMirDepthStencil, NULL);
 		}
 #endif
+
 #ifdef OVR_ENABLE
-		int i;
-		for(i = 0; i < OVR_EYE_NUM; i++)
-		{
-			// Sizei idealSize = ovrHmd_GetFovTextureSize(g_HMD, (ovrEyeType)i, g_HMD->DefaultEyeFov[i], 1.0f);
-			hr1 = p->CreateTexture(g_EyeRenderViewport[i].Size.w, g_EyeRenderViewport[i].Size.h, 1, D3DUSAGE_RENDERTARGET,
-				SurfDesc[0].Format, D3DPOOL_DEFAULT, &g_pEyeTex[i], &g_hEyeTexShareHandle[i]);
-			hr1 = g_pEyeTex[i]->GetSurfaceLevel(0, &g_pEyeSurf[i]);
-			hr1 = p->CreateDepthStencilSurface(g_EyeRenderViewport[i].Size.w, g_EyeRenderViewport[i].Size.h,
-				SurfDesc[1].Format, D3DMULTISAMPLE_NONE, 0,
-				FALSE, &g_pEyeDepth[i], NULL);
+		if( g_pRift ) { /* Rift 初期化成功？ */
+			int i;
+			for(i = 0; i < OVR_EYE_NUM; i++)
+			{
+				hr1 = p->CreateTexture(g_EyeRenderViewport[i].Size.w, g_EyeRenderViewport[i].Size.h, 1, D3DUSAGE_RENDERTARGET,
+					SurfDesc[0].Format, D3DPOOL_DEFAULT, &g_pEyeTex[i], &g_hEyeTexShareHandle[i]);
+				if( FAILED(hr) || !g_pEyeTex[i] )
+					break;
+				hr1 = g_pEyeTex[i]->GetSurfaceLevel(0, &g_pEyeSurf[i]);
+				if( FAILED(hr) || !g_pEyeSurf[i] )
+					break;
+			}
 		}
-#endif
-
-#if 0
-		ID3DXMesh *mesh;
-		ID3DXBuffer *buffer;
-		D3DXMATERIAL material;
-		D3DCOLORVALUE white = { 1.0f, 1.0f, 1.0f, 1.0f };
-		D3DCOLORVALUE yellow = { 1.0f, 1.0f, 0.0f, 1.0f };
-		D3DCOLORVALUE red = { 1.0f, 0.0f, 0.0f, 1.0f };
-		D3DCOLORVALUE green = { 0.0f, 1.0f, 0.0f, 1.0f };
-		D3DCOLORVALUE blue = { 0.0f, 0.0f, 1.0f, 1.0f };
-		D3DCOLORVALUE black = { 0.0f, 0.0f, 0.0f, 1.0f };
-		D3DCOLORVALUE pink = { 1.0f, 0.67f, 0.67f, 1.0f };
-
-		// D3DXCreateCylinder(p, 1.0f, 1.2f, 2.0f, 10, 10, &mesh, &buffer);
-		D3DXCreateSphere(p, 0.05f, 10, 10, &mesh, &buffer);
-
-
-		material.MatD3D.Ambient = white;
-		material.MatD3D.Diffuse = white;
-		material.MatD3D.Specular = white;
-		material.MatD3D.Emissive = white;
-		material.MatD3D.Power = 0.0f;
-		material.pTextureFilename = NULL;
-
-		hr1 = D3DXSaveMeshToX(TEXT("SphereWhite.x"), mesh, NULL, &material, NULL, 1, D3DXF_FILEFORMAT_TEXT | D3DXF_FILESAVE_TOFILE);
-		material.MatD3D.Ambient = material.MatD3D.Diffuse = material.MatD3D.Specular = material.MatD3D.Emissive = black;
-		hr1 = D3DXSaveMeshToX(TEXT("SphereBlack.x"), mesh, NULL, &material, NULL, 1, D3DXF_FILEFORMAT_TEXT | D3DXF_FILESAVE_TOFILE);
-		material.MatD3D.Ambient = material.MatD3D.Diffuse = material.MatD3D.Specular = material.MatD3D.Emissive = red;
-		hr1 = D3DXSaveMeshToX(TEXT("SphereRed.x"), mesh, (DWORD *)(buffer->GetBufferPointer()), &material, NULL, 1, D3DXF_FILEFORMAT_TEXT | D3DXF_FILESAVE_TOFILE);
-		material.MatD3D.Ambient = material.MatD3D.Diffuse = material.MatD3D.Specular = material.MatD3D.Emissive = pink;
-		hr1 = D3DXSaveMeshToX(TEXT("SpherePink.x"), mesh, (DWORD *)(buffer->GetBufferPointer()), &material, NULL, 1, D3DXF_FILEFORMAT_TEXT | D3DXF_FILESAVE_TOFILE);
-		material.MatD3D.Ambient = material.MatD3D.Diffuse = material.MatD3D.Specular = material.MatD3D.Emissive = green;
-		hr1 = D3DXSaveMeshToX(TEXT("SphereGreen.x"), mesh, (DWORD *)(buffer->GetBufferPointer()), &material, NULL, 1, D3DXF_FILEFORMAT_TEXT | D3DXF_FILESAVE_TOFILE);
-		material.MatD3D.Ambient = material.MatD3D.Diffuse = material.MatD3D.Specular = material.MatD3D.Emissive = blue;
-		hr1 = D3DXSaveMeshToX(TEXT("SphereBlue.x"), mesh, (DWORD *)(buffer->GetBufferPointer()), &material, NULL, 1, D3DXF_FILEFORMAT_TEXT | D3DXF_FILESAVE_TOFILE);
-		material.MatD3D.Ambient = material.MatD3D.Diffuse = material.MatD3D.Specular = material.MatD3D.Emissive = yellow;
-		hr1 = D3DXSaveMeshToX(TEXT("SphereYellow.x"), mesh, (DWORD *)(buffer->GetBufferPointer()), &material, NULL, 1, D3DXF_FILEFORMAT_TEXT | D3DXF_FILESAVE_TOFILE);
-
 #endif
 
 	}
@@ -410,8 +347,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3D9MMD::CreateDevice(UINT Adapter,D3DDEVTY
 
 CHookIDirect3DDevice9MMD::CHookIDirect3DDevice9MMD(::IDirect3DDevice9 *pDevice)
 {
-	bShadowTarget = FALSE;
-
 	if(pDevice) {
 		this->pOriginal = pDevice;
 		this->AddRef();
@@ -439,8 +374,15 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::BeginScene()
 {
 	HRESULT hr;
 	hr = this->pOriginal->BeginScene();
-	WaitForSingleObject(g_hSemaphoreMMDRenderSync, 30);
+#ifdef OVR_ENABLE
+	WaitForSingleObject(g_hSemaphoreMMDRenderSync, 1000);
+#endif
 	return hr;
+}
+
+HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::EndScene()
+{
+	return this->pOriginal->EndScene();
 }
 
 HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::CreateTexture(UINT Width,UINT Height,UINT Levels,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DTexture9** ppTexture,HANDLE* pSharedHandle)
@@ -461,55 +403,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::CreateTexture(UINT Width,UIN
 	return this->pOriginal->CreateTexture(Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
 }
 
-HRESULT STDMETHODCALLTYPE IDirect3DVertexBuffer9MMD_Lock(IDirect3DVertexBuffer9 *pthis, UINT OffsetToLock, UINT SizeToLock, void** ppbData, DWORD Flags)
-{
-	IDirect3DVertexBuffer9_PrivateData *pHook = HookIDirect3DVertexBuffer9_GetPrivateData(pthis);
-
-	DWORD dwLock = HookIDirect3DVertexBuffer9_GetOffset_Lock(pthis);
-	tIDirect3DVertexBuffer9_Lock pLock = (tIDirect3DVertexBuffer9_Lock)HookIDirect3DVertexBuffer9_GetMethod(pthis, dwLock);
-
-	/* Lock()に必要な情報を保存する */
-	pHook->OffsetToLock = OffsetToLock;
-	pHook->SizeToLock = SizeToLock;
-	pHook->Flags = Flags;
-
-	// ダミーバッファを返して、ここに書き込んでもらう。遅延Lockする。
-	// こうするとなぜか早くなる
-	if( pHook->pBuffer ) {
-		*ppbData = (void *)pHook->pBuffer;
-		return S_OK;
-	}
-
-	// return pLock(pthis, OffsetToLock, SizeToLock, ppbData, Flags);
-	return pLock(pthis, OffsetToLock, SizeToLock, ppbData, Flags | D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE);
-}
-
-HRESULT STDMETHODCALLTYPE IDirect3DVertexBuffer9MMD_Unlock(IDirect3DVertexBuffer9 *pthis)
-{
-	IDirect3DVertexBuffer9_PrivateData *pHook = HookIDirect3DVertexBuffer9_GetPrivateData(pthis);
-
-	DWORD dwLock = HookIDirect3DVertexBuffer9_GetOffset_Lock(pthis);
-	DWORD dwUnlock = HookIDirect3DVertexBuffer9_GetOffset_Unlock(pthis);
-	tIDirect3DVertexBuffer9_Lock pLock = (tIDirect3DVertexBuffer9_Lock)HookIDirect3DVertexBuffer9_GetMethod(pthis, dwLock);
-	tIDirect3DVertexBuffer9_Unlock pUnlock = (tIDirect3DVertexBuffer9_Unlock)HookIDirect3DVertexBuffer9_GetMethod(pthis, dwUnlock);
-
-	if( pHook->pBuffer ) {
-		HRESULT hr;
-		BYTE *pBuffer = NULL;
-		if( FAILED(hr = pLock(pthis, pHook->SizeToLock, pHook->OffsetToLock, (void **)&pBuffer, pHook->Flags | D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE)) ) {
-			return hr;
-		}
-
-		if( pHook->SizeToLock == 0 && pHook->OffsetToLock == 0 ) {
-			memcpy(pBuffer, pHook->pBuffer, pHook->Length);
-		}
-		else {
-			memcpy(pBuffer, pHook->pBuffer + pHook->OffsetToLock, pHook->SizeToLock);
-		}
-	}
-	return pUnlock(pthis);
-}
-
 HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::CreateVertexBuffer(UINT Length,DWORD Usage,DWORD FVF,D3DPOOL Pool,IDirect3DVertexBuffer9** ppVertexBuffer,HANDLE* pSharedHandle)
 {
 	//return this->pOriginal->CreateVertexBuffer(Length, Usage, FVF, Pool, ppVertexBuffer, pSharedHandle);
@@ -521,23 +414,6 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::CreateVertexBuffer(UINT Leng
 	else if( Pool == D3DPOOL_MANAGED ) {
 		Pool = D3DPOOL_DEFAULT;
 		Usage |= D3DUSAGE_DYNAMIC; //これがないとさらに遅くなる
-
-#if 0
-		HRESULT hr;
-		IDirect3DVertexBuffer9 *pVB = NULL;
-		hr = this->pOriginal->CreateVertexBuffer(Length, Usage, FVF, Pool, &pVB, pSharedHandle);
-
-		DWORD dwLock = HookIDirect3DVertexBuffer9_GetOffset_Lock(pVB);
-		DWORD dwUnlock = HookIDirect3DVertexBuffer9_GetOffset_Unlock(pVB);
-
-		HookIDirect3DVertexBuffer9_Hookvtable(pVB, Length);
-		HookIDirect3DVertexBuffer9_HookMethod(pVB, dwLock, (uintptr_t)IDirect3DVertexBuffer9MMD_Lock);
-		HookIDirect3DVertexBuffer9_HookMethod(pVB, dwUnlock, (uintptr_t)IDirect3DVertexBuffer9MMD_Unlock);
-
-		*ppVertexBuffer = pVB;
-
-		return hr;
-#endif
 	}
 #endif
 	return this->pOriginal->CreateVertexBuffer(Length, Usage, FVF, Pool, ppVertexBuffer, pSharedHandle);
@@ -559,74 +435,11 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::CreateIndexBuffer(UINT Lengt
 
 HRESULT STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::SetViewport(CONST D3DVIEWPORT9* pViewport)
 {
-	static D3DVIEWPORT9 vp_old;
-	BOOL bResizeTrigger;
-
-	if( ( vp_old.X != pViewport->X || vp_old.Y != pViewport->Y
-		|| vp_old.Width != pViewport->Width || vp_old.Height != pViewport->Height )
-	 || this->bResizeFlag )
-	{
-		bResizeTrigger = TRUE;
-	}
-	else
-	{
-		bResizeTrigger = FALSE;
-	}
-
-	if( this->bShadowTarget ) {
-	}
-	else if( bResizeTrigger ) {
-		RECT rect;
-
-		vp_old = *pViewport;
-		this->bResizeFlag = FALSE;
-
-		g_vpMirror = vp_old;
-
-		if( !g_pMMEHookMirrorRT ) {
-			rect.top = 0;
-			rect.left = 0;
-			rect.right = pViewport->Width;
-			rect.bottom = pViewport->Height;
-		}
-		else {
-			D3DSURFACE_DESC *pTexDesc = g_pMMEHookMirrorRT->GetRTTexDesc();
-			rect.top = 0;
-			rect.left = 0;
-			rect.right = pTexDesc->Width;
-			rect.bottom = pTexDesc->Height;
-			g_vpMirror.Width = pTexDesc->Width;
-			g_vpMirror.Height = pTexDesc->Height;
-		}
-
-#if 0
-		AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW & (~WS_OVERLAPPED), TRUE);
-
-		g_rectLastMMDSize = rect;
-
-		if( g_bMMDSyncResize ) {
-			SetWindowPos(g_hWnd, 0, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOOWNERZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
-		}
-#endif
-	}
-
 	return this->pOriginal->SetViewport(pViewport);
 }
 
 HRESULT STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::SetRenderTarget(DWORD RenderTargetIndex,IDirect3DSurface9* pRenderTarget)
 {
-#if 0
-	/* ここでRTのサイズが2048x2048 or 4096x4096か？で判定できる。たぶんこっちのが↑より確実。 */
-	D3DSURFACE_DESC desc;
-	pRenderTarget->GetDesc(&desc);
-#endif
-
-	if( pRenderTarget != g_pPrimaryBackBuffer ) {
-		this->bShadowTarget = TRUE;
-	}
-	else {
-		this->bShadowTarget = FALSE;
-	}
 	return this->pOriginal->SetRenderTarget(RenderTargetIndex, pRenderTarget);
 }
 
