@@ -162,6 +162,7 @@ public:
 	/*** IDirect3DDevice9 methods ***/
 	virtual HRESULT STDMETHODCALLTYPE CreateVertexBuffer(UINT Length,DWORD Usage,DWORD FVF,D3DPOOL Pool,IDirect3DVertexBuffer9** ppVertexBuffer,HANDLE* pSharedHandle);
     virtual HRESULT STDMETHODCALLTYPE BeginScene();
+    virtual HRESULT STDMETHODCALLTYPE EndScene();
     virtual HRESULT STDMETHODCALLTYPE Present(CONST RECT* pSourceRect,CONST RECT* pDestRect,HWND hDestWindowOverride,CONST RGNDATA* pDirtyRegion);
 
 	const D3DXMATRIX * GetEyeViewMatrix(ovrEyeType eye) {

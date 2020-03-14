@@ -16,15 +16,9 @@
 #define BUFFER_SIZE	(1024)	/* 汎用バッファサイズ定義 */
 
 
-
 extern HWND g_hWnd;
 extern WNDPROC g_WndMMDSubProc;
 
-
-#ifdef OVR_ENABLE
-extern HWND g_hWndDistortion;
-extern BOOL bOVREyeTexMirror;
-#endif
 
 /* MMDウィンドウ管理 */
 extern HWND g_hWndMMD;
@@ -37,7 +31,6 @@ extern double g_dFovZoom;
 
 
 extern HRESULT InitWindow( HINSTANCE hInstance, int nCmdShow );
-extern HRESULT SetOVRWindowTitleSuffix(TCHAR *pSuffix);
 extern HRESULT SetupWindowState();
 extern HRESULT HackMMDWindow(HWND hWndMMD);
 

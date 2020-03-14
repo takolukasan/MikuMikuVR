@@ -203,26 +203,6 @@ HRESULT WINAPI Hook_D3DXCreateEffectFromResourceA(
 	*ppEffect = pEffect;
 #endif
 
-#if 0
-	ID3DXBuffer *pDisasm;
-	DWORD dwBufSize;
-	LPVOID lpBuf;
-	FILE *fp;
-	hr = D3DXDisassembleEffect(pEffect, TRUE, &pDisasm);
-	if( D3D_OK == hr ) {
-		dwBufSize = pDisasm->GetBufferSize();
-		lpBuf = pDisasm->GetBufferPointer();
-
-		fp = fopen("Effect.txt", "wb+");
-		if(fp)
-		{
-			fwrite(lpBuf, 1, dwBufSize, fp);
-			fclose(fp);
-		}
-
-		pDisasm->Release();
-	}
-#endif
 	return hr;
 }
 

@@ -16,7 +16,6 @@
 #define MMEHACK_EFFECT_OVRRENDERL	"MMDOVRRenderL.fx"
 #define MMEHACK_EFFECT_OVRRENDERR	"MMDOVRRenderR.fx"
 
-#define MMEHACK_EFFECT_TEXTURENAME		RTMirrorView
 #define MMEHACK_EFFECT_EYETEXTURENAMEL	RTEyeViewL
 #define MMEHACK_EFFECT_EYETEXTURENAMER	RTEyeViewR
 
@@ -27,10 +26,19 @@
 #define DEG2RAD(deg)	(M_PI * asfloat(deg) / 180.0)
 
 
+// 共通定数
+#define MMEHACK_VIEWTYPE_DEFAULT	(0)		// ビュー行列・プロジェクション行列をを書き換えない
+#define MMEHACK_VIEWTYPE_VIEWPROJ	(1)		// ビュー行列・プロジェクションを書き換える
+#define MMEHACK_VIEWTYPE_PROJONLY	(2)		// プロジェクション行列のみを書き換える(ビュー行列はMMDのカメラを使う)
+
+#define MMEHACK_VIEWEYE_LEFT		(0)
+#define MMEHACK_VIEWEYE_RIGHT		(1)
+
+
 /* 分からない人はここから↓以外触るな！ */
 
 // カメラオブジェクトの名前 pmd/pmx/x どれでもOK
-#define OBJECT_CAMERA			"MMDMVCamera.x"
+#define OBJECT_CAMERA			"MMDOVRCamera.x"
 #define OBJECT_CAMERA_ITEM		""
 
 // 焦点オブジェクトの名前 pmd/pmx/x どれでもOK

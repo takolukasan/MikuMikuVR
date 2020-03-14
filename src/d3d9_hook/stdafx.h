@@ -70,3 +70,5 @@
 #include "MMEHack_Effect.h"
 
 #include "Direct3D9_VtblUtil.h"
+
+#include "RenderProfiler.h"

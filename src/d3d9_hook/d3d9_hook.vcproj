@@ -44,7 +44,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVRKernel\Src"
+				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVR\Include;OculusRift\LibOVRKernel\Src"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -64,7 +64,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib OculusRift\LibOVR\Lib\Windows\Win32\Release\VS2010\libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9d.lib&quot; dxguid.lib dxgi.lib MMDExport\MMDExport_x86.lib"
+				AdditionalDependencies="imagehlp.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3d10_1.lib d3dx11d.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9d.lib&quot; dxguid.lib dxgi.lib d2d1.lib"
 				OutputFile="$(OutDir)\..\MikuMikuVREXE\$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="MMDExport"
@@ -120,7 +120,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVRKernel\Src"
+				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVR\Include;OculusRift\LibOVRKernel\Src"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS;X64"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -140,7 +140,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib OculusRift\LibOVR\Lib\Windows\x64\Release\VS2010\libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib d3dx9d.lib dxguid.lib dxgi.lib"
+				AdditionalDependencies="imagehlp.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib d3dx9d.lib dxguid.lib dxgi.lib d2d1.lib"
 				OutputFile="$(ProjectDir)\..\MikuMikuVREXE\x64\$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="MMDExport"
@@ -197,7 +197,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVRKernel\Src"
+				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVR\Include;OculusRift\LibOVRKernel\Src"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -216,7 +216,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib OculusRift\LibOVR\Lib\Windows\Win32\Release\VS2010\libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib D3DX11.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9.lib&quot; dxguid.lib MMDExport\MMDExport_x86.lib MMDExport\MMDExport_x64.lib"
+				AdditionalDependencies="imagehlp.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib D3DX11.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9.lib&quot; dxguid.lib"
 				OutputFile="$(OutDir)\..\MikuMikuVREXE\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="MMDExport"
@@ -276,7 +276,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVRKernel\Src"
+				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVR\Include;OculusRift\LibOVRKernel\Src"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS;X64"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -295,7 +295,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib OculusRift\LibOVR\Lib\Windows\x64\Release\VS2010\libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx9.lib D3DX11.lib dxguid.lib"
+				AdditionalDependencies="imagehlp.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx9.lib D3DX11.lib dxguid.lib"
 				OutputFile="$(ProjectDir)\..\MikuMikuVREXE\x64\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="MMDExport"
@@ -402,6 +402,10 @@
 			</File>
 			<File
 				RelativePath=".\OVRManager.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\RenderProfiler.cpp"
 				>
 			</File>
 			<File
@@ -539,6 +543,118 @@
 						/>
 					</FileConfiguration>
 				</File>
+				<Filter
+					Name="LibOVR"
+					>
+					<File
+						RelativePath=".\OculusRift\LibOVR\Src\OVR_CAPI_Util.cpp"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug|x64"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|x64"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath=".\OculusRift\LibOVR\Src\OVR_CAPIShim.c"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug|x64"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|x64"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath=".\OculusRift\LibOVR\Src\OVR_StereoProjection.cpp"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug|x64"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|x64"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								UsePrecompiledHeader="0"
+							/>
+						</FileConfiguration>
+					</File>
+				</Filter>
 			</Filter>
 		</Filter>
 		<Filter
@@ -568,6 +684,10 @@
 			</File>
 			<File
 				RelativePath=".\OVRManager.h"
+				>
+			</File>
+			<File
+				RelativePath=".\RenderProfiler.h"
 				>
 			</File>
 			<File

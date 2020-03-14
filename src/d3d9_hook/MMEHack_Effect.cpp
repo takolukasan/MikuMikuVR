@@ -244,8 +244,6 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 
 CHookID3DXEffectMMEMirrorRT::CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect)
 {
-	this->pSurfRT = NULL;
-
 #ifdef OVR_ENABLE
 	this->hEyeRT[0] = NULL;
 	this->hEyeRT[1] = NULL;
@@ -284,10 +282,6 @@ CHookID3DXEffectMMEMirrorRT::CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect)
 CHookID3DXEffectMMEMirrorRT::~CHookID3DXEffectMMEMirrorRT()
 {
 	/* pOriginal->Release() ‚Í CHookID3DXEffect::~CHookID3DXEffect ‚ÅŽÀŽ{ */
-	if( this->pSurfRT ) {
-		this->pSurfRT->Release();
-		this->pSurfRT = NULL;
-	}
 #ifdef OVR_ENABLE
 	if( this->pSurfRTEye[0] ) {
 		this->pSurfRTEye[0]->Release();
@@ -309,6 +303,11 @@ HRESULT	STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::QueryInterface(REFIID rii
 		return S_OK;
 	}
 	return this->pOriginal->QueryInterface(riid, ppvObject);
+}
+
+HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::Begin(UINT *pPasses, DWORD Flags)
+{
+	return this->pOriginal->Begin(pPasses, Flags);
 }
 
 HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::SetTexture(D3DXHANDLE hParameter, LPDIRECT3DBASETEXTURE9 pTexture)
@@ -442,7 +441,7 @@ HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::Begin(UINT *pPasses, DWOR
 		}
 	}
 	if( !this->hViewType
-		|| (this->hViewType &&MMEHACK_VIEWTYPE_DEFAULT != this->nViewType) ) {
+		|| (this->hViewType && MMEHACK_VIEWTYPE_DEFAULT != this->nViewType) ) {
 
 		pmatProj = pMMEHookDirect3DDevice9->GetProjectionMatrix((ovrEyeType)this->nOVREye);
 		this->SetProjMatrix(pmatProj);

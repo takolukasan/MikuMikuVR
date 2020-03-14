@@ -7,10 +7,10 @@ using namespace OVR;
 int g_nOVRFPS;
 
 /* Direct3D11 実装インターフェースポインタ */
-ID3D11Device *g_pd3dDevice = NULL;
-ID3D11DeviceContext *g_pImmediateContext = NULL;
-ID3D11Texture2D *g_pOVREyeTex[OVR_EYE_NUM];
-ID3D11ShaderResourceView *g_pEyeSRView[OVR_EYE_NUM];
+static ID3D11Device *g_pd3dDevice = NULL;
+static ID3D11DeviceContext *g_pImmediateContext = NULL;
+static ID3D11Texture2D *g_pOVREyeTex[OVR_EYE_NUM];
+static ID3D11ShaderResourceView *g_pEyeSRView[OVR_EYE_NUM];
 
 ovrRecti g_EyeRenderViewport[OVR_EYE_NUM];
 
@@ -19,6 +19,8 @@ D3DXMATRIX g_matOVREyeProj[OVR_EYE_NUM];
 
 OculusRift *g_pOculusRift;
 OculusRiftDevice *g_pRift;
+
+ovrPosef g_RiftLastPose[OVR_EYE_NUM];	/* ヘッドトラッキング位置 */
 
 
 HRESULT OVRManager_Create()
@@ -40,21 +42,19 @@ HRESULT OVRManager_Create()
 		return E_FAIL;
 	}
 
-	Sizei Tex0Size,Tex1Size;
-	Sizei g_OvrRenderSize;
+	ovrSizei TexSize0,TexSize1;
+	ovrSizei OvrRenderSize;
 
-	ovrHmd hmd = g_pRift->GetDevice();
-	Tex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
-	Tex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, hmd->DefaultEyeFov[1], 1.0f);
-	g_OvrRenderSize.w = Tex0Size.w + Tex1Size.w;
-	g_OvrRenderSize.h = max(Tex0Size.h, Tex1Size.h);
+	g_pRift->GetEyeRenderTextureSize(&TexSize0, &TexSize1);
+
+	OvrRenderSize.w = TexSize0.w + TexSize1.w;
+	OvrRenderSize.h = max(TexSize0.h, TexSize1.h);
 
 	// TODO ビューポートはライブラリ側から取得する構成にしたい
 	g_EyeRenderViewport[0].Pos  = Vector2i(0,0);
-	g_EyeRenderViewport[0].Size = Sizei(g_OvrRenderSize.w / 2, g_OvrRenderSize.h);
+	g_EyeRenderViewport[0].Size = Sizei(OvrRenderSize.w / 2, OvrRenderSize.h);
 	g_EyeRenderViewport[1].Pos  = Vector2i(0,0); // 1枚テクスチャの場合 Vector2i((g_OvrRenderSize.w + 1) / 2, 0);
 	g_EyeRenderViewport[1].Size = g_EyeRenderViewport[0].Size;
-
 
 	return S_OK;
 }
@@ -111,12 +111,12 @@ HRESULT OVRDistortion_D3D11Init()
     sd.BufferCount = 1;
     sd.BufferDesc.Width = width;
     sd.BufferDesc.Height = height;
-    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	// sd.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    // sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     sd.BufferDesc.RefreshRate.Numerator = 0;			// Oculus DK2 = 75Hz
     sd.BufferDesc.RefreshRate.Denominator = 1;
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_UNORDERED_ACCESS;
-    sd.OutputWindow = g_hWndDistortion;
+    sd.OutputWindow = g_hWnd;
 	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 	// Todo: デバイスのサポートを調べること
 	// ID3D11Device::CheckMultisampleQualityLevels
@@ -188,10 +188,16 @@ HRESULT OVRDistortion_D3D11Init()
 			return E_FAIL;
 		}
 
-		// or = g_pRift->SetupMirrorWindow(NULL, g_hModMyLibrary, WINDOW_WIDTH, WINDOW_HEIGHT); /* 新しくつくる */
-		or = g_pRift->SetupMirrorWindow(&g_hWndDistortion);	/* 今あるやつを使う */
+		or = g_pRift->SetupMirrorWindow(&g_hWnd);	/* 今あるやつを使う */
 	}
 	else {
+		return E_FAIL;
+	}
+
+	try {
+		g_pProfiler = new RenderProfiler(g_pd3dDevice, g_pImmediateContext);
+	}
+	catch(bad_alloc) {
 		return E_FAIL;
 	}
 
@@ -244,8 +250,8 @@ HRESULT OVRDistortion_Create()
 HRESULT OVRDistortion_Render1()
 {
 	if( g_pRift ) {
-		/* EyeRenderPoseはライブラリ側の管理に任せるので特にいらない。 */
-		g_pRift->BeginFrame(nullptr);
+		/* EyeRenderPoseはライブラリ側の管理に任せるので特にいらない。→やっぱりちょっと欲しい */
+		g_pRift->BeginFrame(g_RiftLastPose);
 	}
 	else {
 		return E_FAIL;
@@ -261,11 +267,14 @@ HRESULT OVRDistortion_Render2()
     const float ClearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f }; // red, green, blue, alpha
 
 	ID3D11Texture2D *pTex;
-	//D3D11_TEXTURE2D_DESC desc1,desc2;
 
 	if( !g_pRift ) {
 		return E_FAIL;
 	}
+
+
+	if( g_pProfiler )
+		g_pProfiler->EnterCheckPoint(TEXT("OVRDistortion_Render2 / copy eye texture"));
 
 	g_pRift->BeginEyeRender(ovrEye_Left, true, &ClearColor[0]);
 	pTex = g_pRift->GetCurrentEyeTex(ovrEye_Left);
@@ -275,7 +284,16 @@ HRESULT OVRDistortion_Render2()
 	pTex = g_pRift->GetCurrentEyeTex(ovrEye_Right);
 	g_pRift->GetD3D11Context()->CopyResource(pTex, g_pOVREyeTex[ovrEye_Right]);
 
+	if( g_pProfiler )
+		g_pProfiler->LeaveCheckPoint();
+
+	if( g_pProfiler )
+		g_pProfiler->EnterCheckPoint(TEXT("OVRDistortion_Render2 / call g_pRift->EndFrame()"));
+
 	g_pRift->EndFrame();
+
+	if( g_pProfiler )
+		g_pProfiler->LeaveCheckPoint();
 
 	// ovrHmd_EndFrame() が勝手にやってくれる
     // g_pSwapChain->Present( 0, 0 );
@@ -286,7 +304,6 @@ HRESULT OVRDistortion_Render2()
 		g_nOVRFPS = nFrameCount;
 		nFrameCount = 0;
 		dwFPSStartTime = dwTime;
-
 	}
 	nFrameCount++;
 
@@ -302,6 +319,11 @@ HRESULT OVRDistortion_Cleanup()
 	for( i = 0; i < OVR_EYE_NUM; i++ ) {
 		RELEASE(g_pOVREyeTex[i]);
 		RELEASE(g_pEyeSRView[i]);
+	}
+
+	if( g_pProfiler ) {
+		delete g_pProfiler;
+		g_pProfiler = nullptr;
 	}
 
     RELEASE( g_pImmediateContext );
