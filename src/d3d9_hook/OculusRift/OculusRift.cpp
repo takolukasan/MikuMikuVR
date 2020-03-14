@@ -69,7 +69,9 @@ OculusRiftDevice::OculusRiftDevice(int nDeviceIndex, ovrSession session, ovrGrap
 	// this->nMyDeviceIndex = nDeviceIndex;
 
 	this->HmdDesc = ovr_GetHmdDesc(this->Session);
-	this->uHmdCaps = ovr_GetEnabledCaps(this->Session);
+#if 0
+	this->uHmdCaps = ovr_GetTrackingCaps(this->Session);
+#endif
 	this->uTrackingCaps = ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection | ovrTrackingCap_Position;
 
 	this->pDXGI = nullptr;
@@ -86,7 +88,7 @@ OculusRiftDevice::OculusRiftDevice(int nDeviceIndex, ovrSession session, ovrGrap
 	this->uMirrorWindowHeight = MIRROR_BACKBUFFER_HEIGHT;
 
 	this->pMirrorSwapChain = nullptr;
-	this->pMirrorTexture = nullptr;
+	this->MirrorTexture = nullptr;
 	this->pMirrorBackBuffer = nullptr;
 	this->pMirrorRTV = nullptr;
 	this->pMirrorBackBufferDepth = nullptr;
@@ -94,22 +96,22 @@ OculusRiftDevice::OculusRiftDevice(int nDeviceIndex, ovrSession session, ovrGrap
 	int eye;
 
 	for( eye = 0; eye < ovrEye_Count; eye++ ) {
-		this->pTextureSet[eye] = nullptr;
+		this->EyeTextureSwapChain[eye] = nullptr;
+		this->pEyeTexture[eye] = nullptr;
 		this->pD3D11RTVSet[eye] = nullptr;
-		this->pMirrorTexSRV[eye] = nullptr;
 		this->TexDepth[eye] = nullptr;
 		this->pD3D11DSV[eye] = nullptr;
 	}
 
-	ZeroMemory(this->HmdToEyeViewOffset, sizeof(this->HmdToEyeViewOffset));
+	ZeroMemory(this->HmdToEyeOffset, sizeof(this->HmdToEyeOffset));
 	ZeroMemory(this->eyeRenderViewport, sizeof(this->eyeRenderViewport));
 	ZeroMemory(this->eyeRenderDesc, sizeof(this->eyeRenderDesc));
 	ZeroMemory(this->EyeRenderPose, sizeof(this->EyeRenderPose));
 
 	this->eyeRenderDesc[ovrEye_Left] = ovr_GetRenderDesc(this->Session, ovrEye_Left, this->HmdDesc.DefaultEyeFov[ovrEye_Left]);
 	this->eyeRenderDesc[ovrEye_Right] = ovr_GetRenderDesc(this->Session, ovrEye_Right, this->HmdDesc.DefaultEyeFov[ovrEye_Right]);
-	this->HmdToEyeViewOffset[ovrEye_Left] = this->eyeRenderDesc[ovrEye_Left].HmdToEyeViewOffset;
-	this->HmdToEyeViewOffset[ovrEye_Right] = this->eyeRenderDesc[ovrEye_Right].HmdToEyeViewOffset;
+	this->HmdToEyeOffset[ovrEye_Left] = this->eyeRenderDesc[ovrEye_Left].HmdToEyeOffset;
+	this->HmdToEyeOffset[ovrEye_Right] = this->eyeRenderDesc[ovrEye_Right].HmdToEyeOffset;
 
 }
 
@@ -119,22 +121,24 @@ OculusRiftDevice::~OculusRiftDevice()
 	int i;
 
 	for( eye = 0; eye < ovrEye_Count; eye++ ) {
-		if( this->pTextureSet[eye] ) {
-			for (i = 0; i < this->pTextureSet[eye]->TextureCount; ++i)
+		if( this->EyeTextureSwapChain[eye] ) {
+			int len = 0;
+			len = ovr_GetTextureSwapChainLength(this->Session, this->EyeTextureSwapChain[eye], &len);
+			for (i = 0; i < len; ++i)
 			{
+				SAFE_RELEASE(pEyeTexture[eye][i]);
 				SAFE_RELEASE(pD3D11RTVSet[eye][i])
-				SAFE_RELEASE(pMirrorTexSRV[eye][i])
 			}
-			ovr_DestroySwapTextureSet(this->Session, this->pTextureSet[eye]);
-			this->pTextureSet[eye] = nullptr;
+			ovr_DestroyTextureSwapChain(this->Session, this->EyeTextureSwapChain[eye]);
+			this->EyeTextureSwapChain[eye] = nullptr;
+		}
+		if( this->pEyeTexture[eye] ) {
+			HeapFree(this->hHeap, 0, this->pEyeTexture[eye]);
+			this->pEyeTexture[eye] = nullptr;
 		}
 		if( this->pD3D11RTVSet[eye] ) {
 			HeapFree(this->hHeap, 0, this->pD3D11RTVSet[eye]);
 			this->pD3D11RTVSet[eye] = nullptr;
-		}
-		if( this->pMirrorTexSRV[eye] ) {
-			HeapFree(this->hHeap, 0, this->pMirrorTexSRV[eye]);
-			this->pMirrorTexSRV[eye] = nullptr;
 		}
 
 		SAFE_RELEASE(this->pD3D11DSV[eye]);
@@ -149,7 +153,8 @@ OculusRiftDevice::~OculusRiftDevice()
 
 	SAFE_RELEASE(this->pMirrorBackBufferDepth);
 
-    ovr_DestroyMirrorTexture(this->Session, this->pMirrorTexture);
+	if( this->MirrorTexture )
+	    ovr_DestroyMirrorTexture(this->Session, this->MirrorTexture);
 
 	SAFE_RELEASE( this->pMirrorSwapChain );
 	if( hWndMirrorWindow ) {
@@ -274,7 +279,20 @@ ovrResult OculusRiftDevice::SetupMirrorWindow(HWND *pWndMirrorWindow, HINSTANCE 
 		this->hWndMirrorWindow = *pWndMirrorWindow;
 
 		RECT rcClient;
+		int nWidth,nHeight;
 		GetClientRect(this->hWndMirrorWindow, &rcClient);
+		nWidth = rcClient.right - rcClient.left;
+		nHeight = rcClient.bottom - rcClient.top;
+
+		// ミラー用バックバッファのサイズは引数,与えられたウィンドウ,デフォルトサイズ(FHD)のうち一番大きいものにしておく
+		if( uWindowWidth < MIRROR_BACKBUFFER_WIDTH || uWindowHeight < MIRROR_BACKBUFFER_HEIGHT ) {
+			uWindowWidth = MIRROR_BACKBUFFER_WIDTH;
+			uWindowHeight = MIRROR_BACKBUFFER_HEIGHT;
+		}
+		if( uWindowWidth < (UINT)nWidth || uWindowHeight < (UINT)nHeight ) {
+			uWindowWidth = (UINT)nWidth;
+			uWindowHeight = (UINT)nHeight;
+		}
 
 		uWindowWidth = rcClient.right - rcClient.left;
 		uWindowHeight = rcClient.bottom - rcClient.top;
@@ -290,7 +308,6 @@ ovrResult OculusRiftDevice::SetupMirrorWindow(HWND *pWndMirrorWindow, HINSTANCE 
     sd.BufferCount = 1;
     sd.BufferDesc.Width = this->uMirrorWindowWidth;
     sd.BufferDesc.Height = this->uMirrorWindowHeight;
-    // sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     sd.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     sd.BufferDesc.RefreshRate.Numerator = 60;
     sd.BufferDesc.RefreshRate.Denominator = 1;
@@ -316,18 +333,13 @@ ovrResult OculusRiftDevice::SetupMirrorWindow(HWND *pWndMirrorWindow, HINSTANCE 
 	}
 
 
-	D3D11_TEXTURE2D_DESC td = { };
-	td.ArraySize        = 1;
-	// td.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
-	td.Format           = DXGI_FORMAT_B8G8R8A8_UNORM;
-	td.Width            = this->uMirrorWindowWidth;
-	td.Height           = this->uMirrorWindowHeight;
-	td.Usage            = D3D11_USAGE_DEFAULT;
-	td.SampleDesc.Count = 1;
-	td.MipLevels        = 1;
-
+    ovrMirrorTextureDesc mirrorDesc = {};
+    mirrorDesc.Format = OVR_FORMAT_B8G8R8A8_UNORM_SRGB;
+    mirrorDesc.Width = this->uMirrorWindowWidth;
+    mirrorDesc.Height = this->uMirrorWindowHeight;
+	mirrorDesc.MiscFlags = ovrTextureMisc_DX_Typeless;
 	ovrResult result;
-	result = ovr_CreateMirrorTextureD3D11(this->Session, this->pD3D11Device, &td, 0, &(this->pMirrorTexture));
+	result = ovr_CreateMirrorTextureDX(this->Session, this->pD3D11Device, &mirrorDesc, &(this->MirrorTexture));
 
 	return result;
 }
@@ -342,59 +354,72 @@ ovrResult OculusRiftDevice::CreateEyeRenderTexture(ovrSizei EyeTexSize[ovrEye_Co
 		return ovrError_InvalidParameter;
 
 
-	D3D11_TEXTURE2D_DESC dsDesc;
 	int eye;
 	int i;
 
     for (eye = 0; eye < 2; eye++)
     {
-        // pEyeRenderTexture[eye]      = new OculusTexture(HMD, idealSize);
+		ovrTextureSwapChainDesc dsDesc = {};
+        dsDesc.Type				= ovrTexture_2D;
+		dsDesc.ArraySize        = 1;
+		dsDesc.Format           = OVR_FORMAT_B8G8R8A8_UNORM_SRGB;
 		dsDesc.Width            = EyeTexSize[eye].w;
 		dsDesc.Height           = EyeTexSize[eye].h;
 		dsDesc.MipLevels        = 1;
-		dsDesc.ArraySize        = 1;
-		// dsDesc.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
-		dsDesc.Format           = DXGI_FORMAT_B8G8R8A8_UNORM;
-		dsDesc.SampleDesc.Count = 1;   // No multi-sampling allowed
-		dsDesc.SampleDesc.Quality = 0;
-		dsDesc.Usage            = D3D11_USAGE_DEFAULT;
-		dsDesc.CPUAccessFlags   = 0;
-		dsDesc.MiscFlags        = 0;
-		dsDesc.BindFlags        = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-		result = ovr_CreateSwapTextureSetD3D11(this->Session, this->pD3D11Device, &dsDesc, 0, &(this->pTextureSet[eye]));
+		dsDesc.SampleCount		= 1;
+		dsDesc.MiscFlags        = ovrTextureMisc_DX_Typeless;
+		dsDesc.BindFlags        = ovrTextureBind_DX_RenderTarget;
+        dsDesc.StaticImage		= ovrFalse;
+		result = ovr_CreateTextureSwapChainDX(this->Session, this->pD3D11Device, &dsDesc, &(this->EyeTextureSwapChain[eye]));
 		if( !OVR_SUCCESS(result) )
 			return result;
 
-		this->pD3D11RTVSet[eye] = (ID3D11RenderTargetView **)HeapAlloc(this->hHeap, 0, sizeof(ID3D11RenderTargetView *) * pTextureSet[eye]->TextureCount);
+		int nTexCount = 0;
+		ovr_GetTextureSwapChainLength(this->Session, this->EyeTextureSwapChain[eye], &nTexCount);
+
+		this->pEyeTexture[eye] = (ID3D11Texture2D **)HeapAlloc(this->hHeap, 0, sizeof(ID3D11Texture2D *) * nTexCount);
+		if( !this->pEyeTexture[eye] ) {
+			return ovrError_MemoryAllocationFailure;
+		}
+
+		this->pD3D11RTVSet[eye] = (ID3D11RenderTargetView **)HeapAlloc(this->hHeap, 0, sizeof(ID3D11RenderTargetView *) * nTexCount);
 		if( !this->pD3D11RTVSet[eye] ) {
 			return ovrError_MemoryAllocationFailure;
 		}
 
-		this->pMirrorTexSRV[eye] = (ID3D11ShaderResourceView **)HeapAlloc(this->hHeap, 0, sizeof(ID3D11ShaderResourceView *) * pTextureSet[eye]->TextureCount);
-		if( !this->pMirrorTexSRV[eye] ) {
-			return ovrError_MemoryAllocationFailure;
-		}
+		HRESULT hr;
 
-        for (i = 0; i < this->pTextureSet[eye]->TextureCount; ++i)
+		D3D11_TEXTURE2D_DESC texdesc = {};
+		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+		rtvDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		
+		for (i = 0; i < nTexCount; ++i)
         {
-            ovrD3D11Texture* tex = (ovrD3D11Texture*)&(this->pTextureSet[eye]->Textures[i]);
-			this->pD3D11Device->CreateRenderTargetView(tex->D3D11.pTexture, NULL, &(this->pD3D11RTVSet[eye][i]));
-			this->pD3D11Device->CreateShaderResourceView(tex->D3D11.pTexture, NULL, &(this->pMirrorTexSRV[eye][i]));
+			ovr_GetTextureSwapChainDesc(this->Session, this->EyeTextureSwapChain[eye], &dsDesc);
+			ovr_GetTextureSwapChainBufferDX(this->Session, this->EyeTextureSwapChain[eye], i, IID_ID3D11Texture2D, (void **)&(this->pEyeTexture[eye][i]));
+			hr = this->pD3D11Device->CreateRenderTargetView(this->pEyeTexture[eye][i], &rtvDesc, &(this->pD3D11RTVSet[eye][i]));
+			if( FAILED(hr) )
+				return ovrError_InvalidParameter;
         }
 
-		// pEyeDepthBuffer[eye]        = new DepthBuffer(DIRECTX.Device, idealSize);
-		dsDesc.Width = EyeTexSize[eye].w;
-		dsDesc.Height = EyeTexSize[eye].h;
-		dsDesc.MipLevels = 1;
-		dsDesc.ArraySize = 1;
-		dsDesc.Format = DXGI_FORMAT_D32_FLOAT;
-		dsDesc.SampleDesc.Count = 1;
-		dsDesc.SampleDesc.Quality = 0;
-		dsDesc.Usage = D3D11_USAGE_DEFAULT;
-		dsDesc.CPUAccessFlags = 0;
-		dsDesc.MiscFlags = 0;
-		dsDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-		this->pD3D11Device->CreateTexture2D(&dsDesc, NULL, &(this->TexDepth[eye]));
+		D3D11_TEXTURE2D_DESC desc = {};
+		desc.Width = EyeTexSize[eye].w;
+		desc.Height = EyeTexSize[eye].h;
+		desc.MipLevels = 1;
+		desc.ArraySize = 1;
+		desc.Format = DXGI_FORMAT_D32_FLOAT;
+		desc.SampleDesc.Count = 1;
+		desc.SampleDesc.Quality = 0;
+		desc.Usage = D3D11_USAGE_DEFAULT;
+		desc.CPUAccessFlags = 0;
+		desc.MiscFlags = 0;
+		desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		this->pD3D11Device->CreateTexture2D(&desc, NULL, &(this->TexDepth[eye]));
 		this->pD3D11Device->CreateDepthStencilView(this->TexDepth[eye], NULL, &(this->pD3D11DSV[eye]));
 
 		this->eyeRenderViewport[eye].Pos.x = 0;
@@ -411,7 +436,7 @@ ovrResult OculusRiftDevice::BeginFrame(ovrPosef *ppEyeRenderPose)
 {
 	double dFrameTiming = ovr_GetPredictedDisplayTime(this->Session, 0);
 	ovrTrackingState TrackingState = ovr_GetTrackingState(this->Session, dFrameTiming, ovrTrue);
-	ovr_CalcEyePoses(TrackingState.HeadPose.ThePose, this->HmdToEyeViewOffset, this->EyeRenderPose);
+	ovr_CalcEyePoses(TrackingState.HeadPose.ThePose, this->HmdToEyeOffset, this->EyeRenderPose);
 
 	if( ppEyeRenderPose ) {
 		ppEyeRenderPose[ovrEye_Left] = this->EyeRenderPose[ovrEye_Left];
@@ -423,10 +448,9 @@ ovrResult OculusRiftDevice::BeginFrame(ovrPosef *ppEyeRenderPose)
 
 ovrResult OculusRiftDevice::BeginEyeRender(ovrEyeType eye, bool bClearRTAndDSV, const float fRTClearColor[4])
 {
-	int nTexIndex;
+	int nTexIndex = 0;
 
-	this->pTextureSet[eye]->CurrentIndex = (this->pTextureSet[eye]->CurrentIndex + 1) % this->pTextureSet[eye]->TextureCount;
-	nTexIndex = this->pTextureSet[eye]->CurrentIndex;
+	ovr_GetTextureSwapChainCurrentIndex(this->Session, this->EyeTextureSwapChain[eye], &nTexIndex);
 
 	if( bClearRTAndDSV ) {
 		this->pD3D11Context->OMSetRenderTargets(1, &(this->pD3D11RTVSet[eye][nTexIndex]), this->pD3D11DSV[eye]);
@@ -434,7 +458,6 @@ ovrResult OculusRiftDevice::BeginEyeRender(ovrEyeType eye, bool bClearRTAndDSV, 
 		this->pD3D11Context->ClearDepthStencilView(this->pD3D11DSV[eye], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
 	}
 
-	// DIRECTX.SetViewport(Recti(eyeRenderViewport[eye]));
 	ovrRecti vp(this->eyeRenderViewport[eye]);
 	D3D11_VIEWPORT D3Dvp;
 	D3Dvp.Width = (float)vp.Size.w;		D3Dvp.Height = (float)vp.Size.h;
@@ -456,12 +479,12 @@ ovrResult OculusRiftDevice::EndFrame()
 
 	for (int eye = 0; eye < ovrEye_Count; eye++)
 	{
-		ld.ColorTexture[eye] = this->pTextureSet[eye];
+		ovr_CommitTextureSwapChain(this->Session, this->EyeTextureSwapChain[eye]);
+		ld.ColorTexture[eye] = this->EyeTextureSwapChain[eye];
 		ld.Viewport[eye]     = this->eyeRenderViewport[eye];
 		ld.Fov[eye]          = this->HmdDesc.DefaultEyeFov[eye];
 		ld.RenderPose[eye]   = this->EyeRenderPose[eye];
 	}
-
 
 	ovrLayerHeader* layers = &ld.Header;
 
@@ -470,13 +493,15 @@ ovrResult OculusRiftDevice::EndFrame()
 
 	HRESULT hr;
 	const float white[4] = { 255, 255, 255, 255 };
-	if( this->hWndMirrorWindow && this->pMirrorSwapChain && this->pMirrorTexture ) {
+	if( this->hWndMirrorWindow && this->pMirrorSwapChain && this->MirrorTexture ) {
 
 		this->pD3D11Context->OMSetRenderTargets(1, &this->pMirrorRTV, NULL);
 		this->pD3D11Context->ClearRenderTargetView(this->pMirrorRTV, white);
 
-		ovrD3D11Texture* tex = (ovrD3D11Texture *)this->pMirrorTexture;
-		this->pD3D11Context->CopyResource(this->pMirrorBackBuffer, tex->D3D11.pTexture);
+		ID3D11Texture2D *pTexSrc = nullptr;
+		ovr_GetMirrorTextureBufferDX(this->Session, this->MirrorTexture, IID_ID3D11Texture2D, (void **)&pTexSrc);
+		this->pD3D11Context->CopyResource(this->pMirrorBackBuffer, pTexSrc);
+		pTexSrc->Release();
 		hr = this->pMirrorSwapChain->Present(0, 0);
 
 	}
@@ -771,40 +796,6 @@ ovrResult OculusRift::CreateDevice(int nDeviceIndex, OculusRiftDevice **ppDevice
 
 	return result;
 }
-
-#if 0
-ovrResult OculusRift::CreateDebugDevice(int nDeviceIndex, OculusRiftDevice **ppDevice)
-{
-	ovrResult result;
-	ovrHmd hmd;
-	OculusRiftDevice *pDeviceReturn;
-
-	/* SDK0.8以降 Device=0限定 */
-	if( nDeviceIndex != 0 )
-		return ovrError_InvalidParameter;
-
-	if( !bLibOVRInitialized || nDeviceIndex < 0 || nDeviceIndex >= OculusRift_MaxDevices || !ppDevice )
-		return ovrError_InvalidParameter;
-
-	if( this->pDevices[nDeviceIndex] )
-		return ovrError_InvalidParameter;
-
-	result = ovrHmd_CreateDebug(ovrHmd_DK2, &hmd);
-	if( ovrSuccess == result ) {
-		try {
-			pDeviceReturn = new OculusRiftDevice(nDeviceIndex, hmd);
-		}
-		catch(std::bad_alloc) {
-			ovrHmd_Destroy(hmd);
-			return ovrError_MemoryAllocationFailure;
-		}
-		*ppDevice = pDeviceReturn;
-		this->pDevices[nDeviceIndex] = pDeviceReturn;
-	}
-
-	return result;
-}
-#endif
 
 ovrResult OculusRift::DestoryDevice(int nDeviceIndex)
 {

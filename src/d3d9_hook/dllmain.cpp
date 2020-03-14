@@ -12,6 +12,39 @@ BOOL g_bMMEHacked;
 
 TCHAR g_tcApplicationDirectory[FILENAME_LENGTH];
 
+
+#ifdef DEBUG_CONSOLE
+void PrintConsole(const char *szString, const int *pInt)
+{
+	char szStrBuffer[1024];
+	int nCharWritten = 0;
+	if( szString )
+		nCharWritten = sprintf_s(szStrBuffer, sizeof(szStrBuffer), "%s", szString);
+	if( pInt )
+		nCharWritten += sprintf_s(szStrBuffer + nCharWritten, sizeof(szStrBuffer) - nCharWritten, "%d", *pInt);
+
+	nCharWritten += sprintf_s(szStrBuffer + nCharWritten, sizeof(szStrBuffer) - nCharWritten, "\r\n");
+
+	DWORD dwWritten;
+	WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), szStrBuffer, nCharWritten, &dwWritten, NULL);
+}
+void PrintConsole(const char *szString, const char *szString2)
+{
+	char szStrBuffer[1024];
+	int nCharWritten = 0;
+	if( szString )
+		nCharWritten = sprintf_s(szStrBuffer, sizeof(szStrBuffer), "%s", szString);
+	if( szString2 )
+		nCharWritten += sprintf_s(szStrBuffer + nCharWritten, sizeof(szStrBuffer) - nCharWritten, "%s", szString2);
+
+	nCharWritten += sprintf_s(szStrBuffer + nCharWritten, sizeof(szStrBuffer) - nCharWritten, "\r\n");
+
+	DWORD dwWritten;
+	WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), szStrBuffer, nCharWritten, &dwWritten, NULL);
+}
+#endif
+
+
 BOOL CheckTargetProcess()
 {
 	DWORD dwLength;

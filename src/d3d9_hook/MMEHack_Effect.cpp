@@ -167,19 +167,31 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 		if( CSTR_EQUAL == nCompResult_RT ) {
 			if( g_pMMEHookMirrorRT && g_pMMEHookMirrorRT->GetRefCnt() == 1 ) {	/* ここまでにお行儀よくRelease()してくれてるようだが・・・ */
 				delete g_pMMEHookMirrorRT;
+				g_pMMEHookMirrorRT = nullptr;
+				SendMessage(g_hWnd, WM_MMVR_EFFECTUNLOADED, 0, 0);
 			}
-			g_pMMEHookMirrorRT = new CHookID3DXEffectMMEMirrorRT(p);
 
-			if( !g_pMMEHookMirrorRT ) {
-				*ppEffect = p;
-			}
-			else if( FAILED(g_pMMEHookMirrorRT->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
-				*ppEffect = p;
-				delete g_pMMEHookMirrorRT;
-				g_pMMEHookMirrorRT = NULL;
+			if( g_pMMEHookMirrorRT == nullptr ) {
+				g_pMMEHookMirrorRT = new CHookID3DXEffectMMEMirrorRT(p);
+
+				if( g_pMMEHookMirrorRT == nullptr ) {
+					*ppEffect = p;
+					PrintConsole("MMEffectHack_D3DXCreateEffectFromFile[A/W]:RT buffer effect load failed.");
+				}
+				else if( FAILED(g_pMMEHookMirrorRT->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
+					*ppEffect = p;
+					delete g_pMMEHookMirrorRT;
+					g_pMMEHookMirrorRT = NULL;
+					PrintConsole("MMEffectHack_D3DXCreateEffectFromFile[A/W]:RT buffer effect load failed.");
+				}
+				else {
+					p->Release();
+					PrintConsole("MMEffectHack_D3DXCreateEffectFromFile[A/W]:RT buffer effect load succeeded.");
+					SendMessage(g_hWnd, WM_MMVR_EFFECTLOADED, 0, 0);
+				}
 			}
 			else {
-				p->Release();
+				PrintConsole("MMEffectHack_D3DXCreateEffectFromFile[A/W]:RT buffer effect already loaded.");
 			}
 		}
 
@@ -274,6 +286,20 @@ CHookID3DXEffectMMEMirrorRT::CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect)
 		else {
 			this->hEyeRT[1] = NULL;
 		}
+
+		handle = this->pOriginal->GetParameterBySemantic(NULL, MMEHACK_EFFECT_SEMANTIC_HMDTYPE);
+		if( handle ) {
+			int n;
+			if(SUCCEEDED(this->pOriginal->GetInt(handle, &n))) {
+				TargetHMDType = (ovrHmdType)n;
+			}
+			else {
+				TargetHMDType = ovrHmd_None;
+			}
+		}
+		else {
+			TargetHMDType = ovrHmd_None;
+		}
 #endif
 
 	}
@@ -331,6 +357,15 @@ HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::SetTexture(D3DXHANDLE hPa
 				hr = pTextureRT->GetSurfaceLevel(0, &(this->pSurfRTEye[eye]));
 				if( SUCCEEDED(hr) && this->pSurfRTEye[eye] ) {
 					hr = this->pSurfRTEye[eye]->GetDesc(&(this->RTEyeTexDesc[eye]));
+#ifdef DEBUG_CONSOLE
+					PrintConsole("CHookID3DXEffectMMEMirrorRT::SetTexture()");
+					PrintConsole(" pSurfRTEye:", &eye);
+					int n;
+					n = this->RTEyeTexDesc[eye].Width;
+					PrintConsole("  RTSize.Width:", &n);
+					n = this->RTEyeTexDesc[eye].Height;
+					PrintConsole("  RTSize.Height:", &n);
+#endif
 				}
 				pTextureRT->Release();
 			}

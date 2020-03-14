@@ -1,13 +1,14 @@
 #include "stdafx.h"
 
 
-#define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.30")
+#define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.39")
+// #define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.39 RC2 Build " TEXT(__DATE__) TEXT(" / ") TEXT(__TIME__))
 #define CLASS_NAME			TEXT("MMDOVRHookClass")
 
 
 HWND g_hWnd;
 HMENU g_hMenu;
-
+static LPCTSTR g_pWindowTitle = WINDOW_TITLE;
 
 /* MMDウィンドウ管理 */
 HWND g_hWndMMD;
@@ -61,11 +62,9 @@ HRESULT InitWindow( HINSTANCE hInstance, int nCmdShow )
 
     // Create window
     RECT rc = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
-	rc.right = 1182;
-	rc.bottom = 1461 / 2;
 
     AdjustWindowRect( &rc, WS_OVERLAPPEDWINDOW & (~WS_OVERLAPPED), TRUE );
-    g_hWnd = CreateWindow( wcex.lpszClassName, WINDOW_TITLE, WS_OVERLAPPEDWINDOW & (~WS_MAXIMIZEBOX),
+    g_hWnd = CreateWindow( wcex.lpszClassName, g_pWindowTitle, WS_OVERLAPPEDWINDOW,
                            CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance,
                            NULL );
     if( !g_hWnd )
@@ -122,6 +121,22 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
 		case WM_KEYDOWN:
 			KeyPressProc(wParam);
+			break;
+
+		case WM_MMVR_EFFECTLOADED:
+			{
+				ovrHmdDesc hmdDesc;
+				g_pRift->GetOvrHmdDesc(&hmdDesc);
+				if( g_pMMEHookMirrorRT->GetTargetHmdType() != hmdDesc.Type) {
+					TCHAR tWindowTitle[BUFFER_SIZE + 1];
+					StringCchCopy(tWindowTitle, sizeof(tWindowTitle), g_pWindowTitle);
+					StringCchCat(tWindowTitle, sizeof(tWindowTitle), TEXT(" | Warning: ") TEXT(MMEHACK_EFFECT_RENDERTARGET) TEXT(" HMD type unmatch."));
+					SetWindowText(g_hWnd, tWindowTitle);
+				}
+			}
+			break;
+		case WM_MMVR_EFFECTUNLOADED:
+			SetWindowText(g_hWnd, g_pWindowTitle);
 			break;
 
 		default:
@@ -238,6 +253,14 @@ static void MenuSelectionProc( UINT uMenuItemId )
 				SetWindowPos(g_hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
 			}
 
+			break;
+
+		case ID_MENU_D_SRESET:
+			{
+				RECT rc = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+			    AdjustWindowRect( &rc, WS_OVERLAPPEDWINDOW & (~WS_OVERLAPPED), TRUE );
+				SetWindowPos(g_hWnd, 0, 0, 0, rc.right - rc.left, rc.bottom - rc.top, SWP_NOMOVE | SWP_NOZORDER);
+			}
 			break;
 
 		default:

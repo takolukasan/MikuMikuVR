@@ -51,10 +51,29 @@ HRESULT OVRManager_Create()
 	OvrRenderSize.h = max(TexSize0.h, TexSize1.h);
 
 	// TODO ビューポートはライブラリ側から取得する構成にしたい
-	g_EyeRenderViewport[0].Pos  = Vector2i(0,0);
-	g_EyeRenderViewport[0].Size = Sizei(OvrRenderSize.w / 2, OvrRenderSize.h);
-	g_EyeRenderViewport[1].Pos  = Vector2i(0,0); // 1枚テクスチャの場合 Vector2i((g_OvrRenderSize.w + 1) / 2, 0);
+	g_EyeRenderViewport[0].Pos.x = 0;
+	g_EyeRenderViewport[0].Pos.y = 0;
+	g_EyeRenderViewport[0].Size.w = OvrRenderSize.w / 2;
+	g_EyeRenderViewport[0].Size.h = OvrRenderSize.h;
+	g_EyeRenderViewport[1].Pos  = g_EyeRenderViewport[0].Pos; // 1枚テクスチャの場合 Vector2i((g_OvrRenderSize.w + 1) / 2, 0);
 	g_EyeRenderViewport[1].Size = g_EyeRenderViewport[0].Size;
+
+#ifdef DEBUG_CONSOLE
+	ovrHmdDesc hmdDesc;
+	g_pRift->GetOvrHmdDesc(&hmdDesc);
+	PrintConsole("OVRManager_Create():Rift initialized");
+
+	int n = hmdDesc.Type;
+	PrintConsole(" Type:", &n);
+	PrintConsole(" ProductName:", hmdDesc.ProductName);
+	PrintConsole(" Manufacturer:", hmdDesc.Manufacturer);
+	PrintConsole("");
+
+	PrintConsole(" TexSize0.w:", &TexSize0.w);
+	PrintConsole(" TexSize0.h:", &TexSize0.h);
+	PrintConsole(" TexSize1.w:", &TexSize1.w);
+	PrintConsole(" TexSize1.h:", &TexSize1.h);
+#endif
 
 	return S_OK;
 }
@@ -111,7 +130,6 @@ HRESULT OVRDistortion_D3D11Init()
     sd.BufferCount = 1;
     sd.BufferDesc.Width = width;
     sd.BufferDesc.Height = height;
-    // sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	sd.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     sd.BufferDesc.RefreshRate.Numerator = 0;			// Oculus DK2 = 75Hz
     sd.BufferDesc.RefreshRate.Denominator = 1;
@@ -197,7 +215,7 @@ HRESULT OVRDistortion_D3D11Init()
 	try {
 		g_pProfiler = new RenderProfiler(g_pd3dDevice, g_pImmediateContext);
 	}
-	catch(bad_alloc) {
+	catch(std::bad_alloc) {
 		return E_FAIL;
 	}
 

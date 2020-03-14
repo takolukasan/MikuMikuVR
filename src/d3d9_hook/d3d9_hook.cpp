@@ -45,6 +45,12 @@ static void CleanupD3DHookResources();
 
 DWORD WINAPI MainProc(LPVOID lpParameter)
 {
+#ifdef DEBUG_CONSOLE
+	AllocConsole();
+	PrintConsole("MikuMikuVR debug console.\r\n");
+	PrintConsole("MainProc:Thread created.");
+#endif
+
 #ifdef OVR_ENABLE
 	BOOL bOVRInitialized = FALSE;
 #endif
@@ -94,6 +100,9 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 		bOVRInitialized = FALSE;
 	}
 #endif
+#ifdef DEBUG_CONSOLE
+	PrintConsole("MainProc():D3D11&OVR device initialized.");
+#endif
 
 	// 逆にここはMMD側のDirect3D初期化が終わるまでブロック
 	WaitForSingleObject(g_hSemaphoreMMDInitBlock, INFINITE);
@@ -104,6 +113,10 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 	else {
 		bOVRInitialized = FALSE;
 	}
+#endif
+
+#ifdef DEBUG_CONSOLE
+	PrintConsole("MainProc():Direct3D9 device initialized.");
 #endif
 
 	SetupWindowState();
@@ -219,6 +232,9 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 
 	CloseHandle(g_hSemaphoreMMDShutdownBlock);
 
+#ifdef DEBUG_CONSOLE
+	FreeConsole();
+#endif
 	return 0;
 }
 
@@ -406,7 +422,7 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MMD::EndScene()
 
 	HRESULT hr = this->pOriginal->EndScene();
 
-#if 0
+#if 1
 	if( g_pProfiler ) {
 		g_pProfiler->LeaveCheckPoint();
 		g_pProfiler->EnterCheckPoint(TEXT("CHookIDirect3DDevice9MMD::EndScene() / copy eye texture"));

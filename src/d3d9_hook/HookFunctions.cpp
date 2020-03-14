@@ -65,6 +65,10 @@ IDirect3D9 * WINAPI Hook_Direct3DCreate9(UINT SDKVersion)
 	// メインスレッド再開
 	ResumeThread(g_hMainProcThread);
 
+#ifdef DEBUG_CONSOLE
+	PrintConsole("Hook_Direct3DCreate9():Direct3D object initialized.");
+#endif
+
 	return pD3DHooked;
 }
 

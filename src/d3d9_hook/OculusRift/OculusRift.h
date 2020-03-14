@@ -30,14 +30,14 @@ private:
 	unsigned int uHmdCaps;
 	unsigned int uTrackingCaps;
 
-	ovrVector3f HmdToEyeViewOffset[ovrEye_Count];
+	ovrVector3f HmdToEyeOffset[ovrEye_Count];
     ovrRecti eyeRenderViewport[ovrEye_Count];
 	ovrEyeRenderDesc eyeRenderDesc[ovrEye_Count];
 	ovrPosef EyeRenderPose[ovrEye_Count];
 
-	ovrSwapTextureSet *pTextureSet[ovrEye_Count];
+	ovrTextureSwapChain EyeTextureSwapChain[ovrEye_Count];
+	ID3D11Texture2D **pEyeTexture[ovrEye_Count];
 	ID3D11RenderTargetView **pD3D11RTVSet[ovrEye_Count];
-	ID3D11ShaderResourceView **pMirrorTexSRV[ovrEye_Count];
 
 	ID3D11Texture2D *TexDepth[ovrEye_Count];
 	ID3D11DepthStencilView *pD3D11DSV[ovrEye_Count];
@@ -47,7 +47,7 @@ private:
 	UINT uMirrorWindowHeight;
 
 	IDXGISwapChain *pMirrorSwapChain;
-	ovrTexture *pMirrorTexture;
+	ovrMirrorTexture MirrorTexture;
 	ID3D11Texture2D *pMirrorBackBuffer;
 	ID3D11RenderTargetView *pMirrorRTV;
 	ID3D11Texture2D *pMirrorBackBufferDepth;
@@ -58,7 +58,6 @@ private:
 public:
 
 	/* ƒIƒvƒVƒ‡ƒ“ */
-	ovrHmd GetDevice() { return this->Session; }
 	void GetLuid(LUID *pLUID) {
 		LUID *p;
 		if( pLUID ) {
@@ -69,11 +68,10 @@ public:
 	ID3D11Device *GetD3D11Device() { return pD3D11Device; }
 	ID3D11DeviceContext *GetD3D11Context() { return pD3D11Context; }
 	ID3D11Texture2D *GetBackBuffer() { return this->pMirrorBackBuffer; }
-	ID3D11Texture2D *GetMirrorTexture() { return ((ovrD3D11Texture *)this->pMirrorTexture)->D3D11.pTexture; }
 	ID3D11Texture2D *GetCurrentEyeTex(ovrEyeType eye) {
-		int nTexIndex = this->pTextureSet[eye]->CurrentIndex;
-		ovrD3D11Texture *pTex = (ovrD3D11Texture *)&(this->pTextureSet[eye]->Textures[nTexIndex]);
-		return pTex->D3D11.pTexture;
+		int nTexIndex = 0;
+		ovr_GetTextureSwapChainCurrentIndex(this->Session, this->EyeTextureSwapChain[eye], &nTexIndex);
+		return pEyeTexture[eye][nTexIndex];
 	}
 	ovrResult GetEyeRenderTextureSize(ovrSizei *pLeft, ovrSizei *pRight) {
 		if( !pLeft && !pRight )
@@ -93,24 +91,8 @@ public:
 
 	ovrResult GetOvrHmdDesc(ovrHmdDesc *ovrHmd);
 
-	unsigned int GetHmdCaps() {
-		this->uHmdCaps = ovr_GetEnabledCaps(this->Session);
-		return this->uHmdCaps;
-	}
-	void SetHmdCaps(unsigned int uCaps) {
-		this->uHmdCaps = uCaps & ovrHmdCap_Writable_Mask;
-		ovr_SetEnabledCaps(this->Session, this->uHmdCaps);
-	}
-	unsigned int GetHmdTrackingCaps() {
-		return this->uTrackingCaps;
-	}
-	ovrResult SetHmdTrackingCaps(unsigned int uCaps) {
-		this->uTrackingCaps = uCaps;
-		return ovr_ConfigureTracking(this->Session, this->uTrackingCaps, 0);
-	}
-
 	ovrResult ResetTracking() {
-		ovr_RecenterPose(this->Session);
+		ovr_RecenterTrackingOrigin(this->Session);
 		return ovrSuccess;
 	}
 

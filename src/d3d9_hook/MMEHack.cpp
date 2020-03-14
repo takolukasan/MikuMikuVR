@@ -35,7 +35,8 @@ static HRESULT MMEHack_GarbageCollection()
 	if( g_pMMEHookMirrorRT ) {
 		if( g_pMMEHookMirrorRT->GetRefCnt() == 1 ) {
 			delete g_pMMEHookMirrorRT;
-			g_pMMEHookMirrorRT = NULL;
+			g_pMMEHookMirrorRT = nullptr;
+			SendMessage(g_hWnd, WM_MMVR_EFFECTUNLOADED, 0, 0);
 		}
 	}
 
@@ -589,7 +590,7 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::Present(CONST RECT* pSourceR
 {
 	HRESULT hr = S_OK;
 
-#if 1
+#if 0
 	if( g_pProfiler ) {
 		g_pProfiler->LeaveCheckPoint();
 		g_pProfiler->EnterCheckPoint(TEXT("CHookIDirect3DDevice9MME::Present() / copy eye texture"));
