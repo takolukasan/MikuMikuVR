@@ -20,16 +20,16 @@
 #define MMEHACK_EFFECT_EYETEXTURENAMEL	"RTEyeViewL"
 #define MMEHACK_EFFECT_EYETEXTURENAMER	"RTEyeViewR"
 
-#define MMEHACK_EFFECT_CAMERAOFFSET	"CameraOffset"
-#define MMEHACK_EFFECT_FOCUSOFFSET	"FocusOffset"
+#define MMEHACK_EFFECT_VIEWTYPE		"MMDOVR_ViewType"
+#define MMEHACK_EFFECT_VIEWEYE		"MMDOVR_ViewEye"
+
+#define MMEHACK_EFFECT_PROJ_ZNEAR	"MMDOVR_zNear"
+#define MMEHACK_EFFECT_PROJ_ZFAR	"MMDOVR_zFar"
+
 
 #define MMEHACK_EFFECT_SEMANTIC_HMDTYPE			"MMEHACK_HMDTYPE"
 #define MMEHACK_EFFECT_SEMANTIC_OVR_VIEW		"MMDOVR_VIEW"
 #define MMEHACK_EFFECT_SEMANTIC_OVR_PROJECTION	"MMDOVR_PROJECTION"
-
-
-#define MMEHACK_EFFECT_VIEWTYPE		"MMDOVR_ViewType"
-#define MMEHACK_EFFECT_VIEWEYE		"MMDOVR_ViewEye"
 
 
 // 数学定数・関数定義
@@ -51,6 +51,9 @@
 // OVR_CAPI.h にて定義されている ovrHmdType を参照のこと
 #define MMEHACK_OVRHMDTYPE_DK2		(6)		// ovrHmd_DK2       = 6
 #define MMEHACK_OVRHMDTYPE_CV1		(14)	// ovrHmd_CV1       = 14
+
+#define MMEHACK_PROJ_ZNEAR_DEFAULT	(0.01)
+#define MMEHACK_PROJ_ZFAR_DEFAULT	(100000.0)
 
 
 // フックする関数の定義
@@ -99,6 +102,12 @@ private:
 	D3DXHANDLE hEyeRT[OVR_EYE_NUM];
 	IDirect3DSurface9 *pSurfRTEye[OVR_EYE_NUM];
 	D3DSURFACE_DESC RTEyeTexDesc[OVR_EYE_NUM];
+
+	float fProjZNear;
+	float fProjZFar;
+	D3DXHANDLE hProjZNear;
+	D3DXHANDLE hProjZFar;
+
 #endif
 
 public:
@@ -109,6 +118,8 @@ public:
 	ovrHmdType GetTargetHmdType() { return this->TargetHMDType; }
 	IDirect3DSurface9 * GetEyeSurface(int eye) { return this->pSurfRTEye[eye]; }
 	D3DSURFACE_DESC * GetRTEyeTexDesc(int eye) { return &(this->RTEyeTexDesc[eye]); }
+	float GetProjZNear() { return this->fProjZNear; }
+	float GetProjZFar() { return this->fProjZFar; }
 #endif
 
 	/*** IUnknown methods ***/
@@ -126,6 +137,7 @@ class CHookID3DXEffectOVRRenderer : public CHookID3DXEffect
 private:
 	int nOVREye;
 	int nViewType;
+
 	D3DXHANDLE hViewMatrix;
 	D3DXHANDLE hProjMatrix;
 	D3DXHANDLE hViewType;

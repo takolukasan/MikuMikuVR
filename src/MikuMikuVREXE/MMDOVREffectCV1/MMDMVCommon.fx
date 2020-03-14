@@ -39,6 +39,9 @@
 #define MMEHACK_OVRHMDTYPE_DK2		(6)		// ovrHmd_DK2       = 6
 #define MMEHACK_OVRHMDTYPE_CV1		(14)	// ovrHmd_CV1       = 14
 
+#define MMEHACK_PROJ_ZNEAR_DEFAULT	(0.01)
+#define MMEHACK_PROJ_ZFAR_DEFAULT	(100000.0)
+
 
 /* ï™Ç©ÇÁÇ»Ç¢êlÇÕÇ±Ç±Ç©ÇÁÅ´à»äOêGÇÈÇ»ÅI */
 

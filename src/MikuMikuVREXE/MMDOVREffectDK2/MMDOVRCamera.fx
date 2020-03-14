@@ -39,6 +39,8 @@ texture MMEHACK_EFFECT_EYETEXTURENAMER : OFFSCREENRENDERTARGET <
 >;
 
 const int MMEHack_TargetHmdType  : MMEHACK_HMDTYPE = MMEHACK_OVRHMDTYPE_DK2;
+const float MMDOVR_zNear = MMEHACK_PROJ_ZNEAR_DEFAULT;
+const float MMDOVR_zFar = MMEHACK_PROJ_ZFAR_DEFAULT;
 
 // ↑↑MikuMikuVR からも触るからパラメータ名、セマンティックス名編集禁止！↑↑
 

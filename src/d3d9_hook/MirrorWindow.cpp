@@ -1,7 +1,7 @@
 #include "stdafx.h"
 
 
-#define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.39")
+#define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.393")
 // #define WINDOW_TITLE		TEXT("MikuMikuVR for Oculus Rift Ver 0.39 RC2 Build " TEXT(__DATE__) TEXT(" / ") TEXT(__TIME__))
 #define CLASS_NAME			TEXT("MMDOVRHookClass")
 

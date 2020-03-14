@@ -126,6 +126,8 @@ public:
 #ifdef OCULUSRIFT_SUPPORT_DIRECTX9
 	D3DXMATRIX * GetProjectionMatrix(D3DXMATRIX matProjection[ovrEye_Count]);
 	D3DXMATRIX * GetProjectionMatrix(D3DXMATRIX matProjection[ovrEye_Count], double CustomFovOffset);
+	D3DXMATRIX * GetProjectionMatrix(D3DXMATRIX matProjection[ovrEye_Count], float fZNear, float fZFar);
+	D3DXMATRIX * GetProjectionMatrix(D3DXMATRIX matProjection[ovrEye_Count], double CustomFovOffset, float fZNear, float fZFar);
 	D3DXMATRIX * GetViewMatrixFromLastPose(D3DXMATRIX matEyePositionAndRotation[ovrEye_Count]);
 #endif
 

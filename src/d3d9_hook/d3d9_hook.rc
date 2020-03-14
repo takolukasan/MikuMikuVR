@@ -53,8 +53,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,0,3,9
- PRODUCTVERSION 0,0,3,9
+ FILEVERSION 0,0,39,3
+ PRODUCTVERSION 0,0,39,3
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -70,12 +70,12 @@ BEGIN
         BLOCK "041104b0"
         BEGIN
             VALUE "FileDescription", "MikuMikuVR.dll ダイナミック リンク ライブラリ"
-            VALUE "FileVersion", "0, 0, 3, 9"
+            VALUE "FileVersion", "0, 0, 39, 3"
             VALUE "InternalName", "d3d9_hook_mmvr"
             VALUE "LegalCopyright", "Copyright (C) 2015 @TAKOLUKASAN"
             VALUE "OriginalFilename", "d3d9_hook.dll"
             VALUE "ProductName", "MikuMikuVR for Oculus Rift"
-            VALUE "ProductVersion", "0, 0, 3, 9"
+            VALUE "ProductVersion", "0, 0, 39, 3"
         END
     END
     BLOCK "VarFileInfo"

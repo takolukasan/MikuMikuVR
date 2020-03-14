@@ -569,7 +569,15 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::BeginScene()
 
 		D3DXMATRIX matProj[ovrEye_Count];
 		if( g_dFovZoom < 1.0 ) {
-			g_pRift->GetProjectionMatrix(matProj, g_dFovZoom);
+			if( g_pMMEHookMirrorRT ) {
+				float zNear, zFar;
+				zNear = g_pMMEHookMirrorRT->GetProjZNear();
+				zFar = g_pMMEHookMirrorRT->GetProjZFar();
+				g_pRift->GetProjectionMatrix(matProj, g_dFovZoom, zNear, zFar);
+			}
+			else {
+				g_pRift->GetProjectionMatrix(matProj, g_dFovZoom);
+			}
 		}
 		else {
 			matProj[OVR_EYE_LEFT] = g_matOVREyeProj[OVR_EYE_LEFT];

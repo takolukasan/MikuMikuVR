@@ -32,6 +32,10 @@ static BOOL bLibOVRInitialized;
 #define MIRROR_BACKBUFFER_HEIGHT	(1080)
 
 
+static const float zNear = 0.01f;
+static const float zFar = 100000.0f;
+
+
 static LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
 	PAINTSTRUCT ps;
@@ -512,6 +516,7 @@ ovrResult OculusRiftDevice::EndFrame()
 XMMATRIX * OculusRiftDevice::GetProjectionMatrix(XMMATRIX xmProjection[ovrEye_Count])
 {
 	/* DX9”Ε‚Ζ“―‚¶‚­A‚±‚Α‚Ώ‚ΰ XMMatrixPerspectiveOffCenterLH() ‚ΕγY—ν‚Ι‚Ε‚«‚ιH */
+	/* ovrMatrix4f_Projection ‚Ι’u· */
 
 	XMMATRIX matProj[ovrEye_Count];
 
@@ -520,13 +525,12 @@ XMMATRIX * OculusRiftDevice::GetProjectionMatrix(XMMATRIX xmProjection[ovrEye_Co
 	float projXOffset;
 	float projYScale;
 	float projYOffset;
-	float zNear = 0.01f;
-	float zFar = 1000.0f;
 
 	if( !xmProjection )
 		return nullptr;
 
 	int i;
+	/* zNear < 1.0f ‚Ύ‚Ζ‚¨‚©‚µ‚­‚Θ‚ι */
 	for(i = 0; i < ovrEye_Count; i++ ) {
 		matProj[i] = XMMatrixPerspectiveOffCenterLH(
 			-this->eyeRenderDesc[i].Fov.LeftTan,
@@ -535,11 +539,19 @@ XMMATRIX * OculusRiftDevice::GetProjectionMatrix(XMMATRIX xmProjection[ovrEye_Co
 			this->eyeRenderDesc[i].Fov.UpTan,
 			zNear, zFar
 		);
-		//XMMatrixTranspose(matProj[i]);	// η’·‚Ζ‚Ά‚¤‚©ª‰ΑH‚·‚κ‚ΞΑ‚Ή‚ι‚―‚Η‚ά‚‚Ά‚Ά‚β
+		matProj[i] = XMMatrixTranspose(matProj[i]);
 		xmProjection[i] = matProj[i];
 	}
 
-#if 1
+#if 1	/* DX11 Transpose‚Ά‚η‚Θ‚Ά */
+	ovrMatrix4f ovrMat;
+	for(i = 0; i < ovrEye_Count; i++ ) {
+		ovrMat = ovrMatrix4f_Projection(this->eyeRenderDesc[i].Fov, zNear, zFar, ovrProjection_LeftHanded);
+		xmProjection[i] = XMMATRIX(&ovrMat.M[0][0]);
+	}
+#endif
+
+#if 0	/* Oculus SDK OVR_StereoProjection.cpp CreateProjection() ‚πQl‚Ιμ¬ */
 	for(i = 0; i < ovrEye_Count; i++ ) {
 		projXScale = 2.0f / ( this->eyeRenderDesc[i].Fov.LeftTan + this->eyeRenderDesc[i].Fov.RightTan );
 		projXOffset = ( this->eyeRenderDesc[i].Fov.LeftTan - this->eyeRenderDesc[i].Fov.RightTan ) * projXScale * 0.5f;
@@ -574,7 +586,6 @@ XMMATRIX * OculusRiftDevice::GetProjectionMatrix(XMMATRIX xmProjection[ovrEye_Co
 		matProj[i].m[3][2] = 1.0f;
 		matProj[i].m[3][3] = 0.0f;
 
-		XMMatrixTranspose(matProj[i]);	// η’·‚Ζ‚Ά‚¤‚©ª‰ΑH‚·‚κ‚ΞΑ‚Ή‚ι‚―‚Η‚ά‚‚Ά‚Ά‚β
 		xmProjection[i] = matProj[i];
 	}
 #endif
@@ -619,23 +630,33 @@ XMMATRIX * OculusRiftDevice::GetViewMatrixFromLastPose(XMMATRIX xmEyePositionAnd
 
 D3DXMATRIX * OculusRiftDevice::GetProjectionMatrix(D3DXMATRIX matProjection[ovrEye_Count])
 {
-	const float zNear = 1.0f;
-	const float zFar = 1000.0f;
-
 	int i;
 
 	if( !matProjection )
 		return nullptr;
 
+	ovrMatrix4f ovrMat;
 	for(i = 0; i < ovrEye_Count; i++ ) {
-		D3DXMatrixPerspectiveOffCenterLH(
-			&matProjection[i],
-			-this->eyeRenderDesc[i].Fov.LeftTan,
-			this->eyeRenderDesc[i].Fov.RightTan,
-			-this->eyeRenderDesc[i].Fov.DownTan,
-			this->eyeRenderDesc[i].Fov.UpTan,
-			zNear, zFar
-		);
+		ovrMat = ovrMatrix4f_Projection(this->eyeRenderDesc[i].Fov, zNear, zFar, ovrProjection_LeftHanded);
+		matProjection[i] = D3DXMATRIX(&ovrMat.M[0][0]);
+		D3DXMatrixTranspose(&matProjection[i], &matProjection[i]);
+	}
+
+	return matProjection;
+}
+
+D3DXMATRIX * OculusRiftDevice::GetProjectionMatrix(D3DXMATRIX matProjection[ovrEye_Count], float fZNear, float fZFar)
+{
+	int i;
+
+	if( !matProjection )
+		return nullptr;
+
+	ovrMatrix4f ovrMat;
+	for(i = 0; i < ovrEye_Count; i++ ) {
+		ovrMat = ovrMatrix4f_Projection(this->eyeRenderDesc[i].Fov, fZNear, fZFar, ovrProjection_LeftHanded);
+		matProjection[i] = D3DXMATRIX(&ovrMat.M[0][0]);
+		D3DXMatrixTranspose(&matProjection[i], &matProjection[i]);
 	}
 
 	return matProjection;
@@ -643,17 +664,16 @@ D3DXMATRIX * OculusRiftDevice::GetProjectionMatrix(D3DXMATRIX matProjection[ovrE
 
 D3DXMATRIX * OculusRiftDevice::GetProjectionMatrix(D3DXMATRIX matProjection[ovrEye_Count], double CustomFovOffset)
 {
-	const float zNear = 1.0f;
-	const float zFar = 1000.0f;
-
 	int i;
 
 	double fov_l,fov_r,fov_t,fov_b;
 	double aspect;
-	float fl_tan,fr_tan,ft_tan,fb_tan;
 
 	if( !matProjection )
 		return nullptr;
+
+	ovrFovPort customFov;
+	ovrMatrix4f ovrMat;
 
 	for(i = 0; i < ovrEye_Count; i++ ) {
 		fov_l = atan((double)(this->eyeRenderDesc[i].Fov.LeftTan));
@@ -669,19 +689,54 @@ D3DXMATRIX * OculusRiftDevice::GetProjectionMatrix(D3DXMATRIX matProjection[ovrE
 			fov_b *= CustomFovOffset;
 		}
 
-		fl_tan = (float)tan(fov_l);
-		fr_tan = (float)tan(fov_r);
-		ft_tan = (float)tan(fov_t);
-		fb_tan = (float)tan(fov_b);
+		customFov.LeftTan = (float)tan(fov_l);
+		customFov.RightTan = (float)tan(fov_r);
+		customFov.UpTan = (float)tan(fov_t);
+		customFov.DownTan = (float)tan(fov_b);
 
-		D3DXMatrixPerspectiveOffCenterLH(
-			&matProjection[i],
-			-fl_tan,
-			fr_tan,
-			-ft_tan,
-			fb_tan,
-			zNear, zFar
-		);
+		ovrMat = ovrMatrix4f_Projection(customFov, zNear, zFar, ovrProjection_LeftHanded);
+		matProjection[i] = D3DXMATRIX(&ovrMat.M[0][0]);
+		D3DXMatrixTranspose(&matProjection[i], &matProjection[i]);
+	}
+
+	return matProjection;
+}
+
+D3DXMATRIX * OculusRiftDevice::GetProjectionMatrix(D3DXMATRIX matProjection[ovrEye_Count], double CustomFovOffset, float fZNear, float fZFar)
+{
+	int i;
+
+	double fov_l,fov_r,fov_t,fov_b;
+	double aspect;
+
+	if( !matProjection )
+		return nullptr;
+
+	ovrFovPort customFov;
+	ovrMatrix4f ovrMat;
+
+	for(i = 0; i < ovrEye_Count; i++ ) {
+		fov_l = atan((double)(this->eyeRenderDesc[i].Fov.LeftTan));
+		fov_r = atan((double)(this->eyeRenderDesc[i].Fov.RightTan));
+		fov_t = atan((double)(this->eyeRenderDesc[i].Fov.UpTan));
+		fov_b = atan((double)(this->eyeRenderDesc[i].Fov.DownTan));
+		aspect = (fov_t + fov_b) / (fov_l + fov_r);
+
+		if( CustomFovOffset > 0.0 && CustomFovOffset < 1.0) {
+			fov_l *= CustomFovOffset;
+			fov_r *= CustomFovOffset;
+			fov_t *= CustomFovOffset;
+			fov_b *= CustomFovOffset;
+		}
+
+		customFov.LeftTan = (float)tan(fov_l);
+		customFov.RightTan = (float)tan(fov_r);
+		customFov.UpTan = (float)tan(fov_t);
+		customFov.DownTan = (float)tan(fov_b);
+
+		ovrMat = ovrMatrix4f_Projection(customFov, fZNear, fZFar, ovrProjection_LeftHanded);
+		matProjection[i] = D3DXMATRIX(&ovrMat.M[0][0]);
+		D3DXMatrixTranspose(&matProjection[i], &matProjection[i]);
 	}
 
 	return matProjection;

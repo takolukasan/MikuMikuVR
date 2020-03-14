@@ -300,6 +300,35 @@ CHookID3DXEffectMMEMirrorRT::CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect)
 		else {
 			TargetHMDType = ovrHmd_None;
 		}
+
+		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_PROJ_ZNEAR);
+		if( handle ) {
+			this->hProjZNear = handle;
+			if(FAILED(this->pOriginal->GetFloat(handle, &this->fProjZNear))) {
+				this->fProjZNear = (float)MMEHACK_PROJ_ZNEAR_DEFAULT;
+			}
+		}
+		else {
+			this->hProjZNear = NULL;
+			this->fProjZNear = (float)MMEHACK_PROJ_ZNEAR_DEFAULT;
+		}
+
+		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_PROJ_ZFAR);
+		if( handle ) {
+			this->hProjZFar = handle;
+			if(FAILED(this->pOriginal->GetFloat(handle, &this->fProjZFar))) {
+				this->fProjZFar = (float)MMEHACK_PROJ_ZFAR_DEFAULT;
+			}
+		}
+		else {
+			this->hProjZFar = NULL;
+			this->fProjZFar = (float)MMEHACK_PROJ_ZFAR_DEFAULT;
+		}
+
+		if( g_pRift ) {
+			g_pRift->GetProjectionMatrix(&g_matOVREyeProj[0], this->fProjZNear, this->fProjZFar);
+		}
+
 #endif
 
 	}
@@ -402,7 +431,7 @@ CHookID3DXEffectOVRRenderer::CHookID3DXEffectOVRRenderer(::ID3DXEffect *pEffect)
 			this->hProjMatrix = NULL;
 		}
 
-		handle = this->GetParameterByName(NULL, MMEHACK_EFFECT_VIEWTYPE);
+		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_VIEWTYPE);
 		if( handle ) {
 			this->hViewType = handle;
 			if(FAILED(this->pOriginal->GetInt(handle, &this->nViewType))) {
@@ -413,6 +442,7 @@ CHookID3DXEffectOVRRenderer::CHookID3DXEffectOVRRenderer(::ID3DXEffect *pEffect)
 			this->hViewType = NULL;
 			this->nViewType = MMEHACK_VIEWTYPE_DEFAULT;
 		}
+
 	}
 }
 
