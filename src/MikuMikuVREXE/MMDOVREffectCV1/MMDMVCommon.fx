@@ -34,6 +34,11 @@
 #define MMEHACK_VIEWEYE_LEFT		(0)
 #define MMEHACK_VIEWEYE_RIGHT		(1)
 
+// HMDのバージョン識別用
+// OVR_CAPI.h にて定義されている ovrHmdType を参照のこと
+#define MMEHACK_OVRHMDTYPE_DK2		(6)		// ovrHmd_DK2       = 6
+#define MMEHACK_OVRHMDTYPE_CV1		(14)	// ovrHmd_CV1       = 14
+
 
 /* 分からない人はここから↓以外触るな！ */
 
