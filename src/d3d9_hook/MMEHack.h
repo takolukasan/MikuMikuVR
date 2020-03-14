@@ -145,12 +145,11 @@ public:
 class CHookIDirect3DDevice9MME : public CHookIDirect3DDevice9
 {
 private:
-	BOOL bShadowTarget;
-	D3DXMATRIX matEyeView[OVR_EYE_NUM];
-
 	/* Direct3D9 インターフェース */
 	IDirect3DSwapChain9 *pSwapChainMME;
 
+	D3DXMATRIX matEyeView[OVR_EYE_NUM];
+	D3DXMATRIX matProjection[OVR_EYE_NUM];
 
 
 public:
@@ -165,12 +164,11 @@ public:
     virtual HRESULT STDMETHODCALLTYPE BeginScene();
     virtual HRESULT STDMETHODCALLTYPE Present(CONST RECT* pSourceRect,CONST RECT* pDestRect,HWND hDestWindowOverride,CONST RGNDATA* pDirtyRegion);
 
-
-	void GetEyeViewMatrix(D3DXMATRIX *matViewLeft, D3DXMATRIX *matViewRight) {
-		if( matViewLeft )
-			*matViewLeft = matEyeView[OVR_EYE_LEFT];
-		if( matViewRight )
-			*matViewRight = matEyeView[OVR_EYE_RIGHT];
+	const D3DXMATRIX * GetEyeViewMatrix(ovrEyeType eye) {
+		return &this->matEyeView[eye];
+	}
+	const D3DXMATRIX * GetProjectionMatrix(ovrEyeType eye) {
+		return &this->matProjection[eye];
 	}
 
 };

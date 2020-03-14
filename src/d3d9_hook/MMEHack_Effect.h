@@ -13,8 +13,6 @@
 
 /* MMD(MME)からのD3DX関数コールはx86:ANSI/x64:Unicode(ロジック側で対応) まさに外道 */
 #define MMEHACK_EFFECT_RENDERTARGET	"MMDOVRCamera.fx"
-#define MMEHACK_EFFECT_TEXTURENAME	"RTMirrorView"
-
 
 #define MMEHACK_EFFECT_OVRRENDERL	"MMDOVRRenderL.fx"
 #define MMEHACK_EFFECT_OVRRENDERR	"MMDOVRRenderR.fx"
@@ -30,10 +28,24 @@
 #define MMEHACK_EFFECT_SEMANTIC_OVR_PROJECTION "MMDOVR_PROJECTION"
 
 
+#define MMEHACK_EFFECT_VIEWTYPE		"MMDOVR_ViewType"
+#define MMEHACK_EFFECT_VIEWEYE		"MMDOVR_ViewEye"
+
+
 // 数学定数・関数定義
 #define M_PI			(3.141592654)
 #define DEG2RAD(deg)	(M_PI * (deg) / 180.0)
+#define RAD2DEG(rad)	((rad) * 180.0 / M_PI)
 
+
+// 共通定数
+#define MMEHACK_VIEWTYPE_DEFAULT	(0)		// ビュー行列・プロジェクション行列をを書き換えない
+#define MMEHACK_VIEWTYPE_VIEWPROJ	(1)		// ビュー行列・プロジェクションを書き換える
+#define MMEHACK_VIEWTYPE_PROJONLY	(2)		// プロジェクション行列のみを書き換える(ビュー行列はMMDのカメラを使う)
+
+
+#define MMEHACK_VIEWEYE_LEFT		(0)
+#define MMEHACK_VIEWEYE_RIGHT		(1)
 
 
 // フックする関数の定義
@@ -76,9 +88,7 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 class CHookID3DXEffectMMEMirrorRT : public CHookID3DXEffect
 {
 private:
-	D3DXHANDLE hMirrorRT;
 	IDirect3DSurface9 *pSurfRT;
-	D3DSURFACE_DESC RTTexDesc;
 
 #ifdef OVR_ENABLE
 	D3DXHANDLE hEyeRT[OVR_EYE_NUM];
@@ -91,7 +101,6 @@ public:
 	~CHookID3DXEffectMMEMirrorRT();
 
 	IDirect3DSurface9 * GetRTSurface() { return this->pSurfRT; }
-	D3DSURFACE_DESC * GetRTTexDesc() { return &(this->RTTexDesc); }
 
 #ifdef OVR_ENABLE
 	IDirect3DSurface9 * GetEyeSurface(int eye) { return this->pSurfRTEye[eye]; }
@@ -105,54 +114,16 @@ public:
     virtual HRESULT STDMETHODCALLTYPE SetTexture(D3DXHANDLE hParameter, LPDIRECT3DBASETEXTURE9 pTexture);
 };
 
-// Renderer
-class CHookID3DXEffectMMEOBJRenderer : public CHookID3DXEffect
-{
-private:
-	D3DXHANDLE hCameraOffset;
-	D3DXHANDLE hFocusOffset;
-	int nArrayCamera[2];
-	int nArrayFocus[2];
-
-public:
-	CHookID3DXEffectMMEOBJRenderer(::ID3DXEffect *pEffect);
-	~CHookID3DXEffectMMEOBJRenderer();
-
-	void SetCameraPos(int x, int y) {
-		this->nArrayCamera[0] = x;
-		this->nArrayCamera[1] = y;
-	}
-	void ClearCameraPos() {
-		this->nArrayCamera[0] = 0;
-		this->nArrayCamera[1] = 0;
-	}
-
-	void SetFocusPos(int x, int y) {
-		this->nArrayFocus[0] = x;
-		this->nArrayFocus[1] = y;
-	}
-	void ClearFocusPos() {
-		this->nArrayFocus[0] = 0;
-		this->nArrayFocus[1] = 0;
-	}
-
-	/*** IUnknown methods ***/
-    virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
-
-	/*** ID3DXEffect methods ***/
-    virtual HRESULT STDMETHODCALLTYPE CloneEffect(LPDIRECT3DDEVICE9 pDevice, LPD3DXEFFECT* ppEffect);
-
-    virtual HRESULT STDMETHODCALLTYPE Begin(UINT *pPasses, DWORD Flags);
-
-};
 
 #ifdef OVR_ENABLE
 class CHookID3DXEffectOVRRenderer : public CHookID3DXEffect
 {
 private:
 	int nOVREye;
+	int nViewType;
 	D3DXHANDLE hViewMatrix;
 	D3DXHANDLE hProjMatrix;
+	D3DXHANDLE hViewType;
 
 public:
 	CHookID3DXEffectOVRRenderer(::ID3DXEffect *pEffect);
@@ -160,7 +131,7 @@ public:
 
 	void STDMETHODCALLTYPE SetOVREye(int nEye) { this->nOVREye = nEye; };
 	int STDMETHODCALLTYPE GetOVREye() { return this->nOVREye; }
-	HRESULT STDMETHODCALLTYPE SetProjMatrix(D3DXMATRIX *matProj);
+	HRESULT STDMETHODCALLTYPE SetProjMatrix(const D3DXMATRIX *matProj);
 
 	/*** IUnknown methods ***/
     virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
@@ -174,7 +145,8 @@ public:
 
 /* Direct3DX9 実装インターフェースポインタ */
 extern CHookID3DXEffectMMEMirrorRT *g_pMMEHookMirrorRT;
-extern std::vector<CHookID3DXEffectMMEOBJRenderer *> g_vecMirrorRenderer;
+
+
 #ifdef OVR_ENABLE
 extern std::vector<CHookID3DXEffectOVRRenderer *> g_vecOVREyeRT[OVR_EYE_NUM];
 #endif

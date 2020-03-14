@@ -44,7 +44,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories=""
+				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVRKernel\Src"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -64,10 +64,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovrd.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9d.lib&quot; dxguid.lib dxgi.lib MMDExport\MMDExport_x86.lib"
+				AdditionalDependencies="imagehlp.lib OculusRift\LibOVR\Lib\Windows\Win32\Release\VS2010\libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9d.lib&quot; dxguid.lib dxgi.lib MMDExport\MMDExport_x86.lib"
 				OutputFile="$(OutDir)\..\MikuMikuVREXE\$(ProjectName).dll"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\Win32\VS2010"
+				AdditionalLibraryDirectories="MMDExport"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				TargetMachine="1"
@@ -120,7 +120,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories=""
+				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVRKernel\Src"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS;X64"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -140,10 +140,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovr64d.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib d3dx9d.lib dxguid.lib dxgi.lib"
+				AdditionalDependencies="imagehlp.lib OculusRift\LibOVR\Lib\Windows\x64\Release\VS2010\libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx11d.lib d3dx9d.lib dxguid.lib dxgi.lib"
 				OutputFile="$(ProjectDir)\..\MikuMikuVREXE\x64\$(ProjectName).dll"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\x64\VS2010"
+				AdditionalLibraryDirectories="MMDExport"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				TargetMachine="17"
@@ -197,7 +197,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories=""
+				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVRKernel\Src"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -216,10 +216,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9.lib&quot; dxguid.lib MMDExport\MMDExport_x86.lib MMDExport\MMDExport_x64.lib"
+				AdditionalDependencies="imagehlp.lib OculusRift\LibOVR\Lib\Windows\Win32\Release\VS2010\libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib D3DX11.lib &quot;F:\Program Files (x86)\Microsoft DirectX SDK (December 2006)\Lib\x86\d3dx9.lib&quot; dxguid.lib MMDExport\MMDExport_x86.lib MMDExport\MMDExport_x64.lib"
 				OutputFile="$(OutDir)\..\MikuMikuVREXE\$(ProjectName).dll"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\Win32\VS2010"
+				AdditionalLibraryDirectories="MMDExport"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -276,7 +276,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories=""
+				AdditionalIncludeDirectories="OculusRift;OculusRift\LibOVRKernel\Src"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;D3D9_HOOK_EXPORTS;X64"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -295,10 +295,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="imagehlp.lib libovr64.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx9.lib dxguid.lib"
+				AdditionalDependencies="imagehlp.lib OculusRift\LibOVR\Lib\Windows\x64\Release\VS2010\libovr.lib ws2_32.lib winmm.lib d3d9.lib d3d11.lib d3dx9.lib D3DX11.lib dxguid.lib"
 				OutputFile="$(ProjectDir)\..\MikuMikuVREXE\x64\$(ProjectName).dll"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="MMDExport;LibOVR\Lib\x64\VS2010"
+				AdditionalLibraryDirectories="MMDExport"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -496,6 +496,50 @@
 					</FileConfiguration>
 				</File>
 			</Filter>
+			<Filter
+				Name="OculusRift"
+				>
+				<File
+					RelativePath=".\OculusRift\OculusRift.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalIncludeDirectories="OculusRift\LibOVRKernel\Src"
+							UsePrecompiledHeader="0"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalIncludeDirectories="OculusRift\LibOVRKernel\Src"
+							UsePrecompiledHeader="0"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalIncludeDirectories="OculusRift\LibOVRKernel\Src"
+							UsePrecompiledHeader="0"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalIncludeDirectories="OculusRift\LibOVRKernel\Src"
+							UsePrecompiledHeader="0"
+						/>
+					</FileConfiguration>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="ヘッダー ファイル"
@@ -562,6 +606,14 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="OculusRift"
+				>
+				<File
+					RelativePath=".\OculusRift\OculusRift.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="リソース ファイル"
@@ -570,6 +622,10 @@
 			>
 			<File
 				RelativePath=".\d3d9_hook.rc"
+				>
+			</File>
+			<File
+				RelativePath=".\OculusRift\OculusMirrorRender.fx"
 				>
 			</File>
 		</Filter>

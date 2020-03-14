@@ -26,58 +26,17 @@ CHookIDirect3DDevice9MME *pMMEHookDirect3DDevice9;
 
 
 
-// もっと削れる
-#if 0
-#define RT_Swap() if( g_pMirBackBuffer && g_pMirDepthStencil) {		\
-	D3DVIEWPORT9 vp;												\
-	IDirect3DSurface9 *pSurf,*pDepth;								\
-	this->pOriginal->GetRenderTarget(0, &pSurf);					\
-	this->pOriginal->GetViewport(&vp);								\
-	this->pOriginal->GetDepthStencilSurface(&pDepth);				\
-	this->pOriginal->SetRenderTarget(0, g_pMirBackBuffer);			\
-	this->pOriginal->SetViewport(&vp);								\
-	this->pOriginal->SetDepthStencilSurface(g_pMirDepthStencil);	
-
-#define RT_Restore()												\
-	this->pOriginal->SetRenderTarget(0, pSurf);						\
-	this->pOriginal->SetViewport(&vp);								\
-	this->pOriginal->SetDepthStencilSurface(pDepth);				\
-	pSurf->Release();												\
-	pDepth->Release();												\
-}
-#else
-#define RT_Swap() {													\
-	D3DVIEWPORT9 vp;												\
-	this->pOriginal->GetViewport(&vp);								\
-
-#define RT_Restore()												\
-	this->pOriginal->SetViewport(&vp);								\
-}
-#endif
 
 static HRESULT MMEHack_GarbageCollection();
 
 static HRESULT MMEHack_GarbageCollection()
 {
+	int i;
 
 	if( g_pMMEHookMirrorRT ) {
 		if( g_pMMEHookMirrorRT->GetRefCnt() == 1 ) {
 			delete g_pMMEHookMirrorRT;
 			g_pMMEHookMirrorRT = NULL;
-			pHookDirect3DDevice9->TriggerWindowResize();
-		}
-	}
-
-	int i;
-	std::vector<CHookID3DXEffectMMEOBJRenderer *>::iterator iterRender;
-
-	iterRender = g_vecMirrorRenderer.begin();
-	for( i = 0; i < (int)g_vecMirrorRenderer.size(); i++ ) {
-		if( g_vecMirrorRenderer[i]->GetRefCnt() == 1 ) {
-			delete g_vecMirrorRenderer[i];
-			g_vecMirrorRenderer.erase(iterRender + i);
-			i--;
-			iterRender = g_vecMirrorRenderer.begin();
 		}
 	}
 
@@ -505,7 +464,7 @@ static HRESULT STDMETHODCALLTYPE IDirect3DVertexBuffer9MME_Lock(IDirect3DVertexB
 	// でもダミーバッファ返すだけだとなぜか頂点バッファがこわれるので遅延ロックは止める。
 	if( pHook->BufferFirstWritten && pHook->pBuffer ) {
 		*ppbData = (void *)(pHook->pBuffer + OffsetToLock);
-#if 0
+#if 0 /* 遅延LOCK */
 		if( SizeToLock == 0 && OffsetToLock == 0 ) {
 			memcpy(*ppbData, pHook->pBuffer, pHook->Length);
 		}
@@ -513,7 +472,7 @@ static HRESULT STDMETHODCALLTYPE IDirect3DVertexBuffer9MME_Lock(IDirect3DVertexB
 			memcpy(*ppbData, pHook->pBuffer + OffsetToLock, SizeToLock);
 		}
 #else
-		return pLock(pthis, OffsetToLock, SizeToLock, (void **)&(pHook->_pLockedBuffer), D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE);
+		return pLock(pthis, OffsetToLock, SizeToLock, (void **)&(pHook->_pLockedBuffer), D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE);	/* とりあえずここのオプションが大事 */
 #endif
 		return S_OK;
 	}
@@ -527,13 +486,14 @@ static HRESULT STDMETHODCALLTYPE IDirect3DVertexBuffer9MME_Unlock(IDirect3DVerte
 	IDirect3DVertexBuffer9_PrivateData *pHook = HookIDirect3DVertexBuffer9_GetPrivateData(pthis);
 
 	DWORD dwLock = HookIDirect3DVertexBuffer9_GetOffset_Lock(pthis);
-	DWORD dwUnlock = HookIDirect3DVertexBuffer9_GetOffset_Unlock(pthis);
 	tIDirect3DVertexBuffer9_Lock pLock = (tIDirect3DVertexBuffer9_Lock)HookIDirect3DVertexBuffer9_GetMethod(pthis, dwLock);
+
+	DWORD dwUnlock = HookIDirect3DVertexBuffer9_GetOffset_Unlock(pthis);
 	tIDirect3DVertexBuffer9_Unlock pUnlock = (tIDirect3DVertexBuffer9_Unlock)HookIDirect3DVertexBuffer9_GetMethod(pthis, dwUnlock);
 
 	if( pHook->BufferFirstWritten && pHook->pBuffer ) {
 		BYTE *pBuffer = NULL;
-#if 0
+#if 0 /* 遅延LOCK */
 		HRESULT hr;
 		if( FAILED(hr = pLock(pthis, pHook->SizeToLock, pHook->OffsetToLock, (void **)&pBuffer, pHook->Flags | D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE)) ) {
 			return hr;
@@ -549,8 +509,9 @@ static HRESULT STDMETHODCALLTYPE IDirect3DVertexBuffer9MME_Unlock(IDirect3DVerte
 			memcpy(pBuffer, pHook->pBuffer + pHook->OffsetToLock, pHook->SizeToLock);
 		}
 	}
-	else if(pHook->pBuffer) {
+	else if( pHook->pBuffer ) {
 		BYTE *pBuffer;
+		/* 最初に書き込まれたバッファの中身をバッファにもらっておく。D3DLOCK_READONLY でOK */
 		if( SUCCEEDED(pLock(pthis, 0, 0, (void **)&pBuffer, D3DLOCK_READONLY)) ) {
 			memcpy(pHook->pBuffer, pBuffer, pHook->Length);
 			pUnlock(pthis);
@@ -592,12 +553,30 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::BeginScene()
 	HRESULT hr;
 	hr = this->pOriginal->BeginScene();
 
-	if( TryEnterCriticalSection(&g_csLockmatEyeView) ) {
-		this->matEyeView[OVR_EYE_LEFT] = g_matEyeView[OVR_EYE_LEFT];
-		this->matEyeView[OVR_EYE_RIGHT] = g_matEyeView[OVR_EYE_RIGHT];
-		LeaveCriticalSection(&g_csLockmatEyeView);
-	}
+	if( g_pRift ) {
+		/* ここでいい？？ */
+		D3DXMATRIX matHeadMove,matRotateYAxis,matHeadMovRot;
+		D3DXMatrixTranslation(&matHeadMove, (float)g_dMovingPosX, (float)g_dMovingPosY, (float)g_dMovingPosZ);
+		D3DXMatrixRotationY(&matRotateYAxis, (float)g_dRotationY);
+		matHeadMovRot = matHeadMove * matRotateYAxis;
 
+		D3DXMATRIX matView[OVR_EYE_NUM];
+		g_pRift->GetViewMatrixFromLastPose(&matView[0]);
+
+		this->matEyeView[OVR_EYE_LEFT] = matHeadMovRot * matView[OVR_EYE_LEFT];
+		this->matEyeView[OVR_EYE_RIGHT] = matHeadMovRot * matView[OVR_EYE_RIGHT];
+
+		D3DXMATRIX matProj[ovrEye_Count];
+		if( g_dFovZoom < 1.0 ) {
+			g_pRift->GetProjectionMatrix(matProj, g_dFovZoom);
+		}
+		else {
+			matProj[OVR_EYE_LEFT] = g_matOVREyeProj[OVR_EYE_LEFT];
+			matProj[OVR_EYE_RIGHT] = g_matOVREyeProj[OVR_EYE_RIGHT];
+		}
+		this->matProjection[OVR_EYE_LEFT] = matProj[OVR_EYE_LEFT];
+		this->matProjection[OVR_EYE_RIGHT] = matProj[OVR_EYE_RIGHT];
+	}
 	return hr;
 }
 
@@ -605,74 +584,38 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::Present(CONST RECT* pSourceR
 {
 	HRESULT hr = S_OK;
 
-	RECT rect;
-	RECT rectMirrorRT;
-
-	rect.left = 0;
-	rect.top = 0;
-
 	if( g_pMMEHookMirrorRT ) {
-		D3DSURFACE_DESC *pTexDesc = g_pMMEHookMirrorRT->GetRTTexDesc();
-
-		/* Clear & StretchRect */
-		RT_Swap();
-#if 0
-		hr = this->pOriginal->Clear(0, NULL, D3DCLEAR_STENCIL | D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0,255,255,255), 1.0f, 0);
-#endif
-
-		D3DVIEWPORT9 vp_mirror;
-		vp_mirror = g_vpMirror;
-		vp_mirror.X = 0;
-		vp_mirror.Y = 0;
-		vp_mirror.Width = pTexDesc->Width;
-		vp_mirror.Height = pTexDesc->Height;
-#if 0
-		this->pOriginal->SetViewport(&vp_mirror);
-#endif
-
-		RECT rectSrc;
-		rectSrc.left = 0;
-		rectSrc.top = 0;
-		rectSrc.right = pTexDesc->Width;
-		rectSrc.bottom = pTexDesc->Height;
-#if 0
-		hr = this->pOriginal->StretchRect(g_pMMEHookMirrorRT->GetRTSurface(), &rectSrc, g_pMirBackBuffer, &rectSrc, D3DTEXF_LINEAR);
-#endif
+		RECT rectSrc = { 0, 0, 0, 0 };
 
 #ifdef OVR_ENABLE
 		int i;
-		RECT rectDst = rectSrc;
+		RECT rectDst = { 0, 0, 0, 0 };
 
-		D3DSURFACE_DESC MirBackBufferDesc;
 		RECT rectDstMir[2];
 		if( bOVREyeTexMirror ) {
-			g_pMirBackBuffer->GetDesc(&MirBackBufferDesc);
 			rectDstMir[0].left = 0;
 			rectDstMir[0].top = 0;
-			rectDstMir[0].right = MirBackBufferDesc.Width / 2;
-			rectDstMir[0].bottom = MirBackBufferDesc.Height;
+			rectDstMir[0].right = g_MirBackBufferDesc.Width / 2;
+			rectDstMir[0].bottom = g_MirBackBufferDesc.Height;
 
-			rectDstMir[1].left = MirBackBufferDesc.Width / 2;
+			rectDstMir[1].left = g_MirBackBufferDesc.Width / 2;
 			rectDstMir[1].top = 0;
-			rectDstMir[1].right = MirBackBufferDesc.Width;
-			rectDstMir[1].bottom = MirBackBufferDesc.Height;
+			rectDstMir[1].right = g_MirBackBufferDesc.Width;
+			rectDstMir[1].bottom = g_MirBackBufferDesc.Height;
 		}
 
-		// g_vpMirror の参照消したい
-		vp_mirror = g_vpMirror;
+		D3DSURFACE_DESC *pTexDesc;
+
 		for( i = 0; i < OVR_EYE_NUM; i++) {
 			pTexDesc = g_pMMEHookMirrorRT->GetRTEyeTexDesc(i);
-			vp_mirror.X = g_EyeRenderViewport[i].Pos.x;
-			vp_mirror.Y = g_EyeRenderViewport[i].Pos.y;
-			vp_mirror.Width = g_EyeRenderViewport[i].Size.w;
-			vp_mirror.Height = g_EyeRenderViewport[i].Size.h;
-			this->pOriginal->SetViewport(&vp_mirror);
 			rectSrc.right = pTexDesc->Width;
 			rectSrc.bottom = pTexDesc->Height;
 			rectDst.right = g_EyeRenderViewport[i].Size.w;
 			rectDst.bottom = g_EyeRenderViewport[i].Size.h;
+
+			/* D3D11送信用テクスチャへコピー */
 			hr = this->pOriginal->StretchRect(g_pMMEHookMirrorRT->GetEyeSurface(i), &rectSrc, g_pEyeSurf[i], &rectDst, D3DTEXF_NONE);
-			// hr = this->pOriginal->StretchRect(g_pMMEHookMirrorRT->GetEyeSurface(0), &rectSrc, g_pEyeSurf[i], &rectDst, D3DTEXF_NONE);
+
 			if( bOVREyeTexMirror ) {
 				/* 左右の目のテクスチャをミラー表示用のバックバッファにコピーする */
 				this->pOriginal->StretchRect(g_pMMEHookMirrorRT->GetEyeSurface(i), &rectSrc, g_pMirBackBuffer, &rectDstMir[i], D3DTEXF_NONE);
@@ -685,39 +628,12 @@ HRESULT	STDMETHODCALLTYPE CHookIDirect3DDevice9MME::Present(CONST RECT* pSourceR
 		ReleaseSemaphore(g_hSemaphoreOVRRenderSync, 1, NULL);
 #endif
 
-		RT_Restore();
-
-		rect.right = pTexDesc->Width;
-		rect.bottom = pTexDesc->Height;
-
-		rectMirrorRT.left = 0;
-		rectMirrorRT.top = 0;
-		rectMirrorRT.right = pTexDesc->Width;
-		rectMirrorRT.bottom = pTexDesc->Height;
 	}
 	else {
-		rect.right = pSourceRect->right - pSourceRect->left;
-		rect.bottom = pSourceRect->bottom - pSourceRect->top;
-		rectMirrorRT = *pSourceRect;
 	}
 
-#if 0
-	float fAspect = (float)rect.bottom / (float)rect.right;
 
-	/* 横が長い(上下が切れる) */
-	if( (LONG)(fAspect * g_ClientRect.right) >= g_ClientRect.bottom ) {
-		rect.right = g_ClientRect.right;
-		rect.bottom = (LONG)((float)g_ClientRect.right * fAspect + 0.5);
-	}
-	else { /* 縦が長い(左右が切れる) */
-		rect.right = (LONG)((float)g_ClientRect.bottom / fAspect);
-		rect.bottom = g_ClientRect.bottom;
-	}
-#endif
-
-	if( g_pMirSwapChain && g_hWnd ) {
-		// g_pMirSwapChain->Present(pSourceRect, pDestRect, g_hWnd, NULL, 0);
-		// g_pMirSwapChain->Present(&rectMirrorRT, &rect, g_hWnd, NULL, D3DPRESENT_DONOTWAIT);
+	if( g_pMirSwapChain && g_hWnd && bOVREyeTexMirror ) {
 		g_pMirSwapChain->Present(NULL, NULL, g_hWnd, NULL, D3DPRESENT_DONOTWAIT);
 	}
 

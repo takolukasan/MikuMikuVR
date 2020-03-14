@@ -2,35 +2,26 @@
 #define _OVRMANAGER_H
 
 
-#define OVR_EYE_NUM		(2)
-#define OVR_EYE_LEFT	(0)
-#define OVR_EYE_RIGHT	(1)
+#define OVR_EYE_NUM		(ovrEye_Count)
+#define OVR_EYE_LEFT	(ovrEye_Left)
+#define OVR_EYE_RIGHT	(ovrEye_Right)
+
 
 
 using namespace OVR;
-extern int g_nHMDDetected;
-extern ovrHmd g_HMD;
-extern Sizei g_OvrRenderSize;
+
 
 extern int g_nOVRFPS;
 
-extern ID3D11Device*                       g_pd3dDevice;
-extern ID3D11DeviceContext*                g_pImmediateContext;
-extern IDXGISwapChain*                     g_pSwapChain;
-extern ID3D11RenderTargetView*             g_pRenderTargetView;
+extern ID3D11Device *g_pd3dDevice;
+extern ID3D11DeviceContext *g_pImmediateContext;
 
-extern ovrEyeRenderDesc g_EyeRenderDesc[OVR_EYE_NUM];
 extern ovrRecti g_EyeRenderViewport[OVR_EYE_NUM];
-
 
 extern D3DXMATRIX g_matOVREyeProj[OVR_EYE_NUM];
 
 
-extern HANDLE hOVREyeViewThread;
-
-extern CRITICAL_SECTION g_csLockmatEyeView;
-extern D3DXMATRIX g_matEyeView[OVR_EYE_NUM];
-
+extern OculusRiftDevice *g_pRift;
 
 
 extern HRESULT OVRManager_Create();

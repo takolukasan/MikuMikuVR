@@ -10,6 +10,7 @@
 // Windows ヘッダー ファイル:
 #include <windows.h>
 
+
 #define MIRROR_RENDER
 
 #define D3D9EX_ENABLE
@@ -49,8 +50,10 @@
 
 #include "LibOVR/Include/OVR.h"
 #define OVR_D3D_VERSION 11
-#include "LibOVR/Src/OVR_CAPI_D3D.h"
+#include "LibOVR/Include/OVR_CAPI_D3D.h"
 #undef OVR_D3D_VERSION
+
+#include "OculusRift/OculusRift.h"
 
 #include "OVRManager.h"
 

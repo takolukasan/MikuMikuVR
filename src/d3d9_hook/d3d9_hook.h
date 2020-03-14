@@ -3,52 +3,9 @@
 
 
 
-#define RELEASE(p) if(p) { (p)->Release(); (p) = NULL; }
+#define RELEASE(p) if(p) { (p)->Release(); (p) = nullptr; }
 
 
-
-#if 0
-#ifdef OVR_ENABLE
-
-#ifdef MIRROR_RENDER
-#define MMD_RENDER_REPEAT_COUNT			(3)
-#define MMD_RENDER_REPEATSTAGE_ORIGINAL	(0)
-#define MMD_RENDER_REPEATSTAGE_OVR		(1)
-#define MMD_RENDER_REPEATSTAGE_MIRROR	(2)
-#else
-#define MMD_RENDER_REPEAT_COUNT			(1)
-#define MMD_RENDER_REPEATSTAGE_ORIGINAL	(1)
-#endif
-
-
-#else
-
-
-#ifdef MIRROR_RENDER
-#define MMD_RENDER_REPEAT_COUNT			(2)
-#define MMD_RENDER_REPEATSTAGE_ORIGINAL	(0)
-#define MMD_RENDER_REPEATSTAGE_MIRROR	(1)
-#else
-#define MMD_RENDER_REPEAT_COUNT			(1)
-#define MMD_RENDER_REPEATSTAGE_ORIGINAL	(1)
-#endif
-
-#endif
-
-#endif
-
-/* 0-5まで g_matRotateViewPoints[] のインデックスと一致させる */
-enum VIEW_POINTS {
-	VIEW_POINT_LEFT			= 0,
-	VIEW_POINT_RIGHT		= 1,
-	VIEW_POINT_TOP			= 2,
-	VIEW_POINT_BOTTOM		= 3,
-	VIEW_POINT_OPPOSITE		= 4,
-	VIEW_POINT_ORIGINAL		= 5,
-	VIEW_POINT_SELECT_MAX,
-
-	VIEW_POINT_FIX			= 10
-};
 
 
 /* dllmain.cpp */
@@ -70,21 +27,18 @@ extern HANDLE g_hSemaphoreMMDRenderSync;
 
 
 
-extern VIEW_POINTS g_ViewPoint;
-
-
 /* Direct3D9 インターフェース */
 extern IDirect3DSurface9 *g_pPrimaryBackBuffer;
 extern IDirect3DSurface9 *g_pPrimaryDepthStencil;
 extern IDirect3DSwapChain9 *g_pMirSwapChain;
 extern IDirect3DSurface9 *g_pMirBackBuffer;
 extern IDirect3DSurface9 *g_pMirDepthStencil;
+extern D3DSURFACE_DESC g_MirBackBufferDesc;
 
 
 #ifdef OVR_ENABLE
 extern IDirect3DTexture9 *g_pEyeTex[OVR_EYE_NUM];
 extern IDirect3DSurface9 *g_pEyeSurf[OVR_EYE_NUM];
-extern IDirect3DSurface9 *g_pEyeDepth[OVR_EYE_NUM];
 #endif
 
 
@@ -96,8 +50,6 @@ extern HANDLE g_hEyeTexShareHandle[OVR_EYE_NUM];
 #endif
 
 extern DWORD WINAPI MainProc(LPVOID lpParameter);
-
-extern D3DVIEWPORT9 g_vpMirror;
 
 class CHookIDirect3D9MMD : public CHookIDirect3D9
 {
@@ -123,16 +75,10 @@ public:
 class CHookIDirect3DDevice9MMD : public CHookIDirect3DDevice9
 {
 private:
-	BOOL bShadowTarget;
-	BOOL bResizeFlag;
 
 public:
 	CHookIDirect3DDevice9MMD(::IDirect3DDevice9 *pDevice);
 	~CHookIDirect3DDevice9MMD();
-
-	void TriggerWindowResize() {
-		bResizeFlag = TRUE;
-	}
 
 	/*** IUnknown methods ***/
 	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
@@ -166,7 +112,6 @@ public:
 class CHookID3DXEffectMMD : public CHookID3DXEffect
 {
 private:
-	D3DXMATRIX matViewPoint; /* 初期化は g_ViewPoint == VIEW_POINT_ORIGINAL であることを期待 */
 
 public:
 	CHookID3DXEffectMMD(::ID3DXEffect *pEffect);

@@ -12,8 +12,6 @@
 /* Direct3DX9 実装インターフェースポインタ */
 // 使用されなくなったときのガベージコレクションは別で実装している。
 CHookID3DXEffectMMEMirrorRT *g_pMMEHookMirrorRT;
-// Rendererはオブジェクト数分？クローンされるのでたくさん管理できるようにする。
-std::vector<CHookID3DXEffectMMEOBJRenderer *> g_vecMirrorRenderer;
 
 #ifdef OVR_ENABLE
 // Rendererはオブジェクト数分？クローンされるのでたくさん管理できるようにする。
@@ -184,64 +182,60 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 				p->Release();
 			}
 		}
-#if 0
-		else if( CSTR_EQUAL == nCompResult_OBJ ) {
-			CHookID3DXEffectMMEOBJRenderer *pRenderer = NULL;
 
-			pRenderer = new CHookID3DXEffectMMEOBJRenderer(p);
-			if( !pRenderer ) {
-				*ppEffect = p;
-			}
-			else if( FAILED(pRenderer->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
-				*ppEffect = p;
-				delete pRenderer;
-			}
-			else {
-				p->Release();
-				g_vecMirrorRenderer.push_back(pRenderer);
-			}
-		}
-#endif
 #ifdef OVR_ENABLE
-		else if( CSTR_EQUAL == nCompResult_EyeRT[OVR_EYE_LEFT] ) {
-			CHookID3DXEffectOVRRenderer *pRenderer = NULL;
 
-			pRenderer = new CHookID3DXEffectOVRRenderer(p);
-			if( !pRenderer ) {
-				*ppEffect = p;
-			}
-			else if( FAILED(pRenderer->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
-				*ppEffect = p;
-				delete pRenderer;
-			}
-			else {
-				p->Release();
-				g_vecOVREyeRT[OVR_EYE_LEFT].push_back(pRenderer);
-				pRenderer->SetOVREye(OVR_EYE_LEFT);
-				pRenderer->SetProjMatrix(&g_matOVREyeProj[OVR_EYE_LEFT]);
-			}
-		}
-		else if( CSTR_EQUAL == nCompResult_EyeRT[OVR_EYE_RIGHT] ) {
-			CHookID3DXEffectOVRRenderer *pRenderer = NULL;
-
-			pRenderer = new CHookID3DXEffectOVRRenderer(p);
-			if( !pRenderer ) {
-				*ppEffect = p;
-			}
-			else if( FAILED(pRenderer->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
-				*ppEffect = p;
-				delete pRenderer;
-			}
-			else {
-				p->Release();
-				g_vecOVREyeRT[OVR_EYE_RIGHT].push_back(pRenderer);
-				pRenderer->SetOVREye(OVR_EYE_RIGHT);
-				pRenderer->SetProjMatrix(&g_matOVREyeProj[OVR_EYE_RIGHT]);
-			}
-		}
 		else {
-			*ppEffect = p;
+			D3DXHANDLE handle;
+			INT nViewEye = 0;
+			handle = p->GetParameterByName(NULL, MMEHACK_EFFECT_VIEWEYE);
+			if( handle ) {
+				p->GetInt(handle, &nViewEye);
+			}
+
+			if( CSTR_EQUAL == nCompResult_EyeRT[OVR_EYE_LEFT]
+			 || ( handle && MMEHACK_VIEWEYE_LEFT == nViewEye ) ) {
+				CHookID3DXEffectOVRRenderer *pRenderer = NULL;
+
+				pRenderer = new CHookID3DXEffectOVRRenderer(p);
+				if( !pRenderer ) {
+					*ppEffect = p;
+				}
+				else if( FAILED(pRenderer->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
+					*ppEffect = p;
+					delete pRenderer;
+				}
+				else {
+					p->Release();
+					g_vecOVREyeRT[OVR_EYE_LEFT].push_back(pRenderer);
+					pRenderer->SetOVREye(OVR_EYE_LEFT);
+					pRenderer->SetProjMatrix(&g_matOVREyeProj[OVR_EYE_LEFT]);
+				}
+			}
+			else if( CSTR_EQUAL == nCompResult_EyeRT[OVR_EYE_RIGHT]
+			 || ( handle && MMEHACK_VIEWEYE_RIGHT == nViewEye ) ) {
+				CHookID3DXEffectOVRRenderer *pRenderer = NULL;
+
+				pRenderer = new CHookID3DXEffectOVRRenderer(p);
+				if( !pRenderer ) {
+					*ppEffect = p;
+				}
+				else if( FAILED(pRenderer->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
+					*ppEffect = p;
+					delete pRenderer;
+				}
+				else {
+					p->Release();
+					g_vecOVREyeRT[OVR_EYE_RIGHT].push_back(pRenderer);
+					pRenderer->SetOVREye(OVR_EYE_RIGHT);
+					pRenderer->SetProjMatrix(&g_matOVREyeProj[OVR_EYE_RIGHT]);
+				}
+			}
+			else {
+				*ppEffect = p;
+			}
 		}
+
 #endif
 	}
 
@@ -250,9 +244,7 @@ HRESULT WINAPI MMEffectHack_D3DXCreateEffectFromFileW(
 
 CHookID3DXEffectMMEMirrorRT::CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect)
 {
-	this->hMirrorRT = NULL;
 	this->pSurfRT = NULL;
-	ZeroMemory(&this->RTTexDesc, sizeof(this->RTTexDesc));
 
 #ifdef OVR_ENABLE
 	this->hEyeRT[0] = NULL;
@@ -267,13 +259,6 @@ CHookID3DXEffectMMEMirrorRT::CHookID3DXEffectMMEMirrorRT(::ID3DXEffect *pEffect)
 		this->AddRef();
 
 		D3DXHANDLE handle;
-		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_TEXTURENAME);
-		if( handle ) {
-			this->hMirrorRT = handle;
-		}
-		else {
-			this->hMirrorRT = NULL;
-		}
 
 #ifdef OVR_ENABLE
 		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_EYETEXTURENAMEL);
@@ -328,44 +313,18 @@ HRESULT	STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::QueryInterface(REFIID rii
 
 HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::SetTexture(D3DXHANDLE hParameter, LPDIRECT3DBASETEXTURE9 pTexture)
 {
-	if( hParameter == this->hMirrorRT ) {
-		HRESULT hr;
-		IDirect3DTexture9 *pTextureRT;
-
-		if( this->pSurfRT ) {
-			this->pSurfRT->Release();
-			this->pSurfRT = NULL;
-		}
-		ZeroMemory(&(this->RTTexDesc), sizeof(this->RTTexDesc));
-
-		if( pTexture ) {
-			if( SUCCEEDED(pTexture->QueryInterface(IID_IDirect3DTexture9, (void **)&pTextureRT)) ) {
-				hr = pTextureRT->GetSurfaceLevel(0, &(this->pSurfRT));
-				if( SUCCEEDED(hr) && this->pSurfRT ) {
-					hr = this->pSurfRT->GetDesc(&(this->RTTexDesc));
-				}
-				pTextureRT->Release();
-
-				/* バックバッファ解像度変更をDirect3D/Window管理側に通知 */
-				pHookDirect3DDevice9->TriggerWindowResize();
-			}
-		}
-	}
 #ifdef OVR_ENABLE
-	else if( hParameter == this->hEyeRT[0] || hParameter == this->hEyeRT[1] ) {
+	if( hParameter == this->hEyeRT[0] || hParameter == this->hEyeRT[1] ) {
 		int eye;
 		HRESULT hr;
 		IDirect3DTexture9 *pTextureRT;
 		if( hParameter == this->hEyeRT[0] ) {
-			eye = 0;
+			eye = OVR_EYE_LEFT;
 		}
 		else {
-			eye = 1;
+			eye = OVR_EYE_RIGHT;
 		}
-		if( this->pSurfRTEye[eye] ) {
-			this->pSurfRTEye[eye]->Release();
-			this->pSurfRTEye[eye] = NULL;
-		}
+		RELEASE( this->pSurfRTEye[eye] );
 		ZeroMemory(&(this->RTEyeTexDesc[eye]), sizeof(this->RTEyeTexDesc[eye]));
 
 		if( pTexture ) {
@@ -381,95 +340,6 @@ HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEMirrorRT::SetTexture(D3DXHANDLE hPa
 #endif
 	return this->pOriginal->SetTexture(hParameter, pTexture);
 }
-
-CHookID3DXEffectMMEOBJRenderer::CHookID3DXEffectMMEOBJRenderer(::ID3DXEffect *pEffect)
-{
-	this->hCameraOffset = NULL;
-	this->hFocusOffset = NULL;
-	this->ClearCameraPos();
-	this->ClearFocusPos();
-
-	if( pEffect ) {
-		this->pOriginal = pEffect;
-		this->AddRef();
-
-		D3DXHANDLE handle;
-
-		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_CAMERAOFFSET);
-		if( handle ) {
-			this->hCameraOffset = handle;
-		}
-		else {
-			this->hCameraOffset = NULL;
-		}
-
-		handle = this->pOriginal->GetParameterByName(NULL, MMEHACK_EFFECT_FOCUSOFFSET);
-		if( handle ) {
-			this->hFocusOffset = handle;
-		}
-		else {
-			this->hFocusOffset = NULL;
-		}
-	}
-}
-
-CHookID3DXEffectMMEOBJRenderer::~CHookID3DXEffectMMEOBJRenderer()
-{
-	/* pOriginal->Release() は CHookID3DXEffect::~CHookID3DXEffect で実施 */
-}
-
-// CHookID3DXEffectMMEOBJRenderer::IUnknown
-HRESULT	STDMETHODCALLTYPE CHookID3DXEffectMMEOBJRenderer::QueryInterface(REFIID riid, void** ppvObject)
-{
-	if( riid == IID_ID3DXEffect ) {
-		*ppvObject = this;
-		this->AddRef();
-		return S_OK;
-	}
-	return this->pOriginal->QueryInterface(riid, ppvObject);
-}
-
-HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEOBJRenderer::CloneEffect(LPDIRECT3DDEVICE9 pDevice, LPD3DXEFFECT* ppEffect)
-{
-	HRESULT hr;
-	ID3DXEffect *p;
-	CHookID3DXEffectMMEOBJRenderer *pRenderer = NULL;
-
-	hr = this->pOriginal->CloneEffect(pDevice, &p);
-	if( SUCCEEDED(hr) ) {
-		pRenderer = new CHookID3DXEffectMMEOBJRenderer(p);
-		if( !pRenderer ) {
-			*ppEffect = p;
-		}
-		else if( FAILED(pRenderer->QueryInterface(IID_ID3DXEffect, (void **)ppEffect)) ) {
-			*ppEffect = p;
-			delete pRenderer;
-		}
-		else {
-			p->Release();
-			g_vecMirrorRenderer.push_back(pRenderer);
-		}
-	}
-
-	return hr;
-}
-
-HRESULT STDMETHODCALLTYPE CHookID3DXEffectMMEOBJRenderer::Begin(UINT *pPasses, DWORD Flags)
-{
-#if 0
-	// 微妙に冗長だが、SetCameraPos/SetFocusPosの呼び出し箇所を可変にするため
-	// (でも他スレッドからSetすると不都合だし結局ここで設定せざるを得ない？要検討)
-	this->SetCameraPos(g_nMouseX_RSum, g_nMouseY_RSum);
-	this->SetFocusPos(g_nMouseX_LSum, g_nMouseY_LSum);
-
-	if( this->hCameraOffset )
-		this->pOriginal->SetIntArray(this->hCameraOffset, this->nArrayCamera, 2);
-	if( this->hFocusOffset )
-		this->pOriginal->SetIntArray(this->hFocusOffset, this->nArrayFocus, 2);
-#endif
-	return this->pOriginal->Begin(pPasses, Flags);
-}
-
 
 #ifdef OVR_ENABLE
 CHookID3DXEffectOVRRenderer::CHookID3DXEffectOVRRenderer(::ID3DXEffect *pEffect)
@@ -496,6 +366,18 @@ CHookID3DXEffectOVRRenderer::CHookID3DXEffectOVRRenderer(::ID3DXEffect *pEffect)
 		}
 		else {
 			this->hProjMatrix = NULL;
+		}
+
+		handle = this->GetParameterByName(NULL, MMEHACK_EFFECT_VIEWTYPE);
+		if( handle ) {
+			this->hViewType = handle;
+			if(FAILED(this->pOriginal->GetInt(handle, &this->nViewType))) {
+				this->nViewType = MMEHACK_VIEWTYPE_DEFAULT;
+			}
+		}
+		else {
+			this->hViewType = NULL;
+			this->nViewType = MMEHACK_VIEWTYPE_DEFAULT;
 		}
 	}
 }
@@ -546,26 +428,41 @@ HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::CloneEffect(LPDIRECT3DDEV
 
 HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::Begin(UINT *pPasses, DWORD Flags)
 {
-	static D3DXMATRIX matEye[OVR_EYE_NUM];
+	const D3DXMATRIX *pmatView;
+	const D3DXMATRIX *pmatProj;
 
-	pMMEHookDirect3DDevice9->GetEyeViewMatrix(&matEye[OVR_EYE_LEFT], &matEye[OVR_EYE_RIGHT]);
+	/* 古いエフェクトは this->hViewType == NULL → ビュー書き換え */
+	/* 新しいエフェクトだと this->hViewType != NULL → this->nViewType に従う */
+	if( !this->hViewType
+	 || (this->hViewType && MMEHACK_VIEWTYPE_VIEWPROJ == this->nViewType) ) {
 
-	if( this->hViewMatrix ) {
-		this->pOriginal->SetMatrix(this->hViewMatrix, &matEye[this->nOVREye]);
+		if( this->hViewMatrix ) {
+			pmatView = pMMEHookDirect3DDevice9->GetEyeViewMatrix((ovrEyeType)this->nOVREye);
+			this->pOriginal->SetMatrix(this->hViewMatrix, pmatView);
+		}
+	}
+	if( !this->hViewType
+		|| (this->hViewType &&MMEHACK_VIEWTYPE_DEFAULT != this->nViewType) ) {
+
+		pmatProj = pMMEHookDirect3DDevice9->GetProjectionMatrix((ovrEyeType)this->nOVREye);
+		this->SetProjMatrix(pmatProj);
 	}
 
 	return this->pOriginal->Begin(pPasses, Flags);
 }
 
-HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::SetProjMatrix(D3DXMATRIX *matProj)
+HRESULT STDMETHODCALLTYPE CHookID3DXEffectOVRRenderer::SetProjMatrix(const D3DXMATRIX *matProj)
 {
 	HRESULT hr = S_OK;
 
-	if( this->hProjMatrix ) {
-		hr = this->pOriginal->SetMatrix(this->hProjMatrix, matProj);
-	}
-	else {
-		hr = E_INVALIDARG;
+	if( !this->hViewType
+	 || (this->hViewType && MMEHACK_VIEWTYPE_DEFAULT != this->nViewType) ) {
+		if( this->hProjMatrix ) {
+			hr = this->pOriginal->SetMatrix(this->hProjMatrix, matProj);
+		}
+		else {
+			hr = E_INVALIDARG;
+		}
 	}
 
 	return hr;
