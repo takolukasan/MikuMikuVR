@@ -1,4 +1,5 @@
-# MikuMikuVR
+# MikuMikuVR  
+https://github.com/takolukasan/MikuMikuVR  
 初音ミクを~~ローアングルでプレイエリアの外から~~VR空間で眺めることのできる素晴らしいソフトウェア  
 This software is VR software works with MikuMikuDance. 
 
@@ -20,13 +21,14 @@ It may difficult to build, you may modify build configurations yourself.
     I fought each SDK updates. :(  
     Also I guessed build with VS2008 is a cause.  
 
-
 各リリースはReleaseに各Verごと(たぶん合ってるはず・・・)のソースと一緒にまとめてあります。  
 Latest and old release are published at 'Release' with source code.
 
 ライセンス条件 / License  
 * 個人的・非商用利用はご自由にお使いください。  
+ 再配布の際は本リポジトリのパスまたはバイナリ配布サイト(ニコニコ動画)のリンクを一緒に添付してください。(本README.mdの添付を推奨)  
  その他の場合はお問合せください。  
  Personal use only, do not commercial use.  
+ When you redistribute this software, also please redistrubute link of this repository or binary site(niconico). (Recommend attatch this file.)  
  If you want commercial use, please contact me.
  
