@@ -25,10 +25,10 @@ It may difficult to build, you may modify build configurations yourself.
 Latest and old release are published at 'Release' with source code.
 
 ライセンス条件 / License  
-* 個人的・非商用利用はご自由にお使いください。  
+* 個人的・非商用利用については変更・再配布等ご自由にお使いください。  
  再配布の際は本リポジトリのパスまたはバイナリ配布サイト(ニコニコ動画)のリンクを一緒に添付してください。(本README.mdの添付を推奨)  
  その他の場合はお問合せください。  
- Personal use only, do not commercial use.  
+ Personal use only: you can modify or redistribute, do not commercial use.  
  When you redistribute this software, also please redistrubute link of this repository or binary site(niconico). (Recommend attatch this file.)  
  If you want commercial use, please contact me.
  
