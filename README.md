@@ -23,3 +23,10 @@ It may difficult to build, you may modify build configurations yourself.
 
 各リリースはReleaseに各Verごと(たぶん合ってるはず・・・)のソースと一緒にまとめてあります。  
 Latest and old release are published at 'Release' with source code.
+
+ライセンス条件 / License  
+* 個人的・非商用利用はご自由にお使いください。  
+ その他の場合はお問合せください。  
+ Personal use only, do not commercial use.  
+ If you want commercial use, please contact me.
+ 
