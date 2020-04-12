@@ -19,6 +19,8 @@
 #define OVR_ENABLE
 #endif
 
+// #define MOTIONCAP_TEST
+
 
 // #define DEBUG_CONSOLE
 #ifdef DEBUG_CONSOLE

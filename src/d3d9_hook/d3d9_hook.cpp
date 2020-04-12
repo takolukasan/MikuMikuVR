@@ -165,21 +165,32 @@ DWORD WINAPI MainProc(LPVOID lpParameter)
 					// SetOVRWindowTitleSuffix(tcFPSBuffer);
 					g_nOVRFPS = -1;
 				}
-#ifdef _DEBUG
 				/* 続けて暇な時処理 */
+#ifdef MOTIONCAP_TEST
+				/* お試し機能 モーションキャプチャ機能 */
+				/* Oculus のヘッド位置・回転角をMMotionControl(DxOpenNI.dll)経由でMMDに流し込む機能 */
+				/* 完全にここだけのテスト用機能 */
 				HMODULE hModMMotion;
-				typedef void (__stdcall * tSetHeadPoint)(D3DXVECTOR3 *);
+
+				typedef void (__stdcall * tSetHeadPoint)(D3DXQUATERNION *, D3DXVECTOR3 *);
 				tSetHeadPoint pFunc;
+				D3DXQUATERNION quatHead;
 				D3DXVECTOR3 vecHead;
+
+				quatHead.w = g_RiftLastPose[OVR_EYE_LEFT].Orientation.w;
+				quatHead.x = g_RiftLastPose[OVR_EYE_LEFT].Orientation.x;
+				quatHead.y = g_RiftLastPose[OVR_EYE_LEFT].Orientation.y;
+				quatHead.z = g_RiftLastPose[OVR_EYE_LEFT].Orientation.z;
+
+				vecHead.x = g_RiftLastPose[OVR_EYE_LEFT].Position.x * -5;
+				vecHead.y = g_RiftLastPose[OVR_EYE_LEFT].Position.y * 1;
+				vecHead.z = g_RiftLastPose[OVR_EYE_LEFT].Position.z * 5;
 
 				hModMMotion = GetModuleHandle(TEXT("DxOpenNI.DLL"));
 				if( hModMMotion ) {
-					pFunc = (tSetHeadPoint)GetProcAddress(hModMMotion, "_MMMotionControl_SetHeadPoint@4");
+					pFunc = (tSetHeadPoint)GetProcAddress(hModMMotion, "_MMMotionControl_SetHeadPoint@8");	/* "@8" が引数によって変わるよ！ */
 					if( pFunc ) {
-						vecHead.x = g_RiftLastPose[OVR_EYE_LEFT].Position.x * -5;
-						vecHead.y = g_RiftLastPose[OVR_EYE_LEFT].Position.y * 1;
-						vecHead.z = g_RiftLastPose[OVR_EYE_LEFT].Position.z * 5;
-						pFunc(&vecHead);
+						pFunc(&quatHead, &vecHead);
 					}
 				}
 #endif
