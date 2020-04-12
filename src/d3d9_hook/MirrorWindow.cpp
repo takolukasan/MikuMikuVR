@@ -126,12 +126,14 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		case WM_MMVR_EFFECTLOADED:
 			{
 				ovrHmdDesc hmdDesc;
+				if( g_pRift ) {
 				g_pRift->GetOvrHmdDesc(&hmdDesc);
-				if( g_pMMEHookMirrorRT->GetTargetHmdType() != hmdDesc.Type) {
-					TCHAR tWindowTitle[BUFFER_SIZE + 1];
-					StringCchCopy(tWindowTitle, sizeof(tWindowTitle), g_pWindowTitle);
-					StringCchCat(tWindowTitle, sizeof(tWindowTitle), TEXT(" | Warning: ") TEXT(MMEHACK_EFFECT_RENDERTARGET) TEXT(" HMD type unmatch."));
-					SetWindowText(g_hWnd, tWindowTitle);
+					if( g_pMMEHookMirrorRT->GetTargetHmdType() != hmdDesc.Type) {
+						TCHAR tWindowTitle[BUFFER_SIZE + 1];
+						StringCchCopy(tWindowTitle, sizeof(tWindowTitle), g_pWindowTitle);
+						StringCchCat(tWindowTitle, sizeof(tWindowTitle), TEXT(" | Warning: ") TEXT(MMEHACK_EFFECT_RENDERTARGET) TEXT(" HMD type unmatch."));
+						SetWindowText(g_hWnd, tWindowTitle);
+					}
 				}
 			}
 			break;
